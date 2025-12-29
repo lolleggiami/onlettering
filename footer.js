@@ -1763,42 +1763,85 @@ onlOnReady(() => {
 
 <script>
 (function () {
-  // Metti qui gli slug-ponte (quelli che hai usato nei redirect)
+  // I TUOI SLUG "ponte" (senza slash e senza dominio)
   const OUTBOUND_SLUGS = new Set([
-    "pompeo",
+    "insta-lettering-01",
+    "insta-lettering-02"
   ]);
 
-  function normalizePath(href) {
+  function isPortalOrNewsletterLink(a) {
+    // Evita Ghost Portal / newsletter / members
+    if (a.matches('[data-portal], [data-members-modal], [data-members-signin], [data-members-signup]')) return true;
+
+    const href = (a.getAttribute("href") || "").toLowerCase();
+    if (!href) return true;
+
+    // Evita ancore, mailto, tel
+    if (href.startsWith("#") || href.startsWith("mailto:") || href.startsWith("tel:")) return true;
+
+    // Evita URL Portal tipici
+    if (href.includes("#/portal") || href.includes("portal") || href.includes("members")) return true;
+
+    // Evita elementi newsletter/subscribe (classi comuni)
+    const cls = (a.className || "").toLowerCase();
+    if (cls.includes("newsletter") || cls.includes("subscribe")) return true;
+
+    // Evita se sta dentro contenitori newsletter/subscribe (comune nei temi)
+    if (a.closest('[class*="newsletter"], [class*="subscribe"], .gh-portal-trigger')) return true;
+
+    return false;
+  }
+
+  function slugFromHref(href) {
     try {
       const url = new URL(href, location.origin);
-
-      // solo link interni al sito (evita mailto:, tel:, #, ecc.)
       if (url.origin !== location.origin) return null;
-
       const parts = url.pathname.replace(/^\/|\/$/g, "").split("/");
-      return parts[parts.length - 1] || null; // slug
+      return parts[parts.length - 1] || null;
     } catch (e) {
       return null;
     }
   }
 
-  function run() {
-    // Prende SOLO i link interni, così non tocca la newsletter (che spesso usa form/script propri)
-    const links = document.querySelectorAll('a[href^="/"], a[href^="' + location.origin + '/"]');
+  function enhanceLinks(root) {
+    // Limitiamoci ai link dentro le card dei post (article), così non tocchiamo UI varie
+    const candidates = (root || document).querySelectorAll("article a[href]");
 
-    links.forEach(a => {
-      const slug = normalizePath(a.getAttribute("href"));
-      if (!slug) return;
+    candidates.forEach(a => {
+      if (isPortalOrNewsletterLink(a)) return;
 
-      if (OUTBOUND_SLUGS.has(slug)) {
-        a.setAttribute("target", "_blank");
-        a.setAttribute("rel", "noopener noreferrer");
-      }
+      const slug = slugFromHref(a.getAttribute("href"));
+      if (!slug || !OUTBOUND_SLUGS.has(slug)) return;
+
+      // Apri in nuova tab in modo robusto (anche se il tema ha handler sul click)
+      a.addEventListener("click", function (e) {
+        // se già gestito, non fare nulla
+        if (e.defaultPrevented) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(a.href, "_blank", "noopener,noreferrer");
+      }, true);
+
+      // opzionale: metti anche target/rel (non fa male)
+      a.setAttribute("target", "_blank");
+      a.setAttribute("rel", "noopener noreferrer");
     });
   }
 
-  document.addEventListener("DOMContentLoaded", run);
-  window.addEventListener("load", run);
+  // Prima passata
+  document.addEventListener("DOMContentLoaded", function () {
+    enhanceLinks(document);
+  });
+
+  // Se il tema/portal aggiorna DOM dopo (lazy), riapplichiamo senza rompere nulla
+  const obs = new MutationObserver(muts => {
+    for (const m of muts) {
+      for (const node of m.addedNodes) {
+        if (node && node.querySelectorAll) enhanceLinks(node);
+      }
+    }
+  });
+  obs.observe(document.documentElement, { childList: true, subtree: true });
 })();
 </script>
-
