@@ -1762,61 +1762,71 @@ onlOnReady(() => {
 
 
 
-<script>
 (function () {
-  // slug interno -> URL Instagram
-  const OUTBOUND = {
-    "pompeo": "https://www.instagram.com/p/DQPGypfjoKU/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==/",
+  const MAP = {
+    "pompeo": "https://www.instagram.com/p/DQPGypfjoKU/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
   };
 
-  function normalizeInternalHref(href) {
+  const IGNORE_SEL = '[data-portal], .gh-portal-trigger, [class*="newsletter"], [class*="subscribe"], [class*="members"], form, input, button, textarea, select';
+
+  function normalizePath(href) {
     try {
       const u = new URL(href, location.origin);
       if (u.origin !== location.origin) return null;
-      // normalizza: /slug/ (con slash finale)
       let p = u.pathname;
       if (!p.endsWith("/")) p += "/";
       return p;
-    } catch (e) {
+    } catch {
       return null;
     }
   }
 
-  function install() {
-    // Costruisci la lista di path interni che vuoi “hijackare”
-    const wantedPaths = new Map(); // "/slug/" -> instagramUrl
-    Object.entries(OUTBOUND).forEach(([slug, ig]) => {
-      wantedPaths.set("/" + slug.replace(/^\/|\/$/g, "") + "/", ig);
-    });
+  function installForSlug(slug, igUrl) {
+    const wanted = "/" + slug.replace(/^\/|\/$/g, "") + "/";
 
-    // Scansiona tutti i link e seleziona SOLO quelli che puntano ai path “ponte”
-    const links = document.querySelectorAll('a[href]');
+    const links = Array.from(document.querySelectorAll("a[href]"))
+      .filter(a => normalizePath(a.getAttribute("href")) === wanted);
+
     links.forEach(a => {
-      // Escludi esplicitamente Portal/newsletter/members e link speciali
-      if (a.closest('[data-portal], .gh-portal-trigger, [class*="newsletter"], [class*="subscribe"], [class*="members"]')) return;
-      const rawHref = a.getAttribute("href") || "";
-      if (rawHref.startsWith("#") || rawHref.startsWith("mailto:") || rawHref.startsWith("tel:")) return;
-
-      const path = normalizeInternalHref(rawHref);
-      if (!path) return;
-
-      const ig = wantedPaths.get(path);
-      if (!ig) return;
-
-      // IMPORTANTISSIMO: attacca il comportamento SOLO a questo link
-      a.addEventListener("click", function (e) {
-        e.preventDefault();
-        // Questo handler è “diretto” sul link cliccato => nuova scheda consentita
-        window.open(ig, "_blank", "noopener,noreferrer");
-      });
-
-      // opzionale (non necessario ma utile)
+      // Prova a sistemare anche il link
+      a.setAttribute("href", igUrl);
+      a.setAttribute("target", "_blank");
       a.setAttribute("rel", "noopener noreferrer");
+
+      // Overlay-safe: aggancia al contenitore card
+      const card = a.closest("article");
+      if (!card) return;
+
+      if (card.dataset.outboundInstalled === slug) return;
+      card.dataset.outboundInstalled = slug;
+
+      card.style.cursor = "pointer";
+
+      card.addEventListener("click", function (e) {
+        if (e.target && e.target.closest && e.target.closest(IGNORE_SEL)) return;
+
+        const clickedLink = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+        if (clickedLink) {
+          const p = normalizePath(clickedLink.getAttribute("href"));
+          if (p && p !== wanted) return;
+        }
+
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(igUrl, "_blank", "noopener,noreferrer");
+      }, true);
     });
   }
 
-  document.addEventListener("DOMContentLoaded", install);
-  window.addEventListener("load", install);
+  function run() {
+    Object.entries(MAP).forEach(([slug, ig]) => installForSlug(slug, ig));
+  }
+
+  // molto importante con defer: DOMContentLoaded può già essere passato
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run);
+  } else {
+    run();
+  }
 })();
-</script>
 
