@@ -1759,3 +1759,57 @@ onlOnReady(() => {
   mo.observe(document.body, { childList: true, subtree: true });
 
 });
+
+
+/* =========================================================
+   PORTAL FLOATING BUTTON → FORZA SIGNUP (la Newslettering)
+   - Compatibile con Ghost Portal ufficiale
+   - Funziona con “Show portal button”
+   - Nessun accesso all’iframe
+   ========================================================= */
+onlOnReady(() => {
+
+  function forceSignup(e){
+    // intercetta solo click reali
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    // forza il mode signup
+    window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
+
+    // trigger ufficiale Ghost
+    if (window.location.hash !== '#/portal/signup') {
+      window.location.hash = '#/portal/signup';
+    }
+
+    return false;
+  }
+
+  function hookPortalButton(){
+    // Ghost Portal button (varia per tema / versione)
+    const btn =
+      document.querySelector('[data-portal="signup"]') ||
+      document.querySelector('[data-portal-button]') ||
+      document.querySelector('.gh-portal-triggerbtn') ||
+      document.querySelector('.gh-portal-triggerbtn-wrapper button');
+
+    if (!btn || btn.__onl_hooked) return;
+    btn.__onl_hooked = true;
+
+    btn.addEventListener('click', forceSignup, true);
+  }
+
+  // primo tentativo
+  hookPortalButton();
+
+  // breve finestra di osservazione (Portal button può arrivare dopo)
+  let n = 0;
+  const iv = setInterval(() => {
+    hookPortalButton();
+    if (++n > 30) clearInterval(iv);
+  }, 300);
+
+});
+
+
