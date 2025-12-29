@@ -1759,3 +1759,76 @@ onlOnReady(() => {
   mo.observe(document.body, { childList: true, subtree: true });
 
 });
+
+
+
+<script>
+(function () {
+  // 1) Metti qui SOLO gli slug "ponte" (quelli che hai usato per i post che devono aprire IG)
+  const OUTBOUND = {
+    "pompeo": "https://www.instagram.com/p/DQPGypfjoKU/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==/",
+  };
+
+  // 2) Identifica il "contenitore" del feed post, così NON tocchiamo header/footer/newsletter/portal
+  function getFeedRoot() {
+    return (
+      document.querySelector(".post-feed") ||
+      document.querySelector(".gh-feed") ||
+      document.querySelector(".feed") ||
+      document.querySelector("main") ||
+      document.body
+    );
+  }
+
+  function isPortalOrNewsletterTarget(el) {
+    // Escludi Ghost Portal / subscribe / members (molto importante)
+    if (!el) return false;
+    if (el.closest('[data-portal], .gh-portal-trigger, [class*="subscribe"], [class*="newsletter"], [class*="members"]')) return true;
+    return false;
+  }
+
+  function slugFromHref(href) {
+    try {
+      const url = new URL(href, location.origin);
+      if (url.origin !== location.origin) return null;
+      const parts = url.pathname.replace(/^\/|\/$/g, "").split("/");
+      return parts[parts.length - 1] || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // 3) Intercetta SOLO click dentro il feed, SOLO su card/post, SOLO se slug è in OUTBOUND
+  function onClickCapture(e) {
+    const feed = getFeedRoot();
+    if (!feed.contains(e.target)) return; // fuori dal feed -> non tocchiamo nulla
+
+    // prendi il link più vicino (se c'è)
+    const a = e.target.closest("a[href]");
+    if (!a) return;
+
+    // escludi portal/newsletter a prescindere
+    if (isPortalOrNewsletterTarget(a)) return;
+
+    // restringi ancora: lavora solo dentro un article/card
+    const article = a.closest("article");
+    if (!article) return;
+
+    const slug = slugFromHref(a.getAttribute("href"));
+    if (!slug) return;
+
+    const target = OUTBOUND[slug];
+    if (!target) return;
+
+    // Questo è il punto: click “utente” => nuova scheda consentita
+    e.preventDefault();
+    e.stopPropagation();
+
+    window.open(target, "_blank", "noopener,noreferrer");
+  }
+
+  // Capture=true: ci arriviamo prima degli handler del tema (che spesso “hijackano” il click)
+  document.addEventListener("click", onClickCapture, true);
+})();
+</script>
+
