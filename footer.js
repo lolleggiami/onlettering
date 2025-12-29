@@ -1761,95 +1761,158 @@ onlOnReady(() => {
 });
 
 
+<script>
 /* =========================================================
-   COMMENTI POST — CTA MEMBERS (non loggato)
-   - Rimuove "Commenta per primo"
-   - Rimuove login / accedi
-   - Unifica CTA → Iscriviti alla newsletter
-   - Apre il Portal signup (Newslettering)
+   COMMENTI — pulizia CTA “Commenta per primo”
+   - Nasconde “Commenta per primo”
+   - Testo: “Iscriviti a ONlettering per poter commentare.”
+   - Il bottone esistente diventa “Iscriviti alla newsletter” -> signup
+   - Niente bottoni duplicati
    ========================================================= */
 onlOnReady(() => {
 
-  function fixCommentsCTA() {
-    // agiamo solo nelle pagine post
-    if (!document.body.classList.contains('post-template')) return;
+  const WANT_LINE = "Iscriviti a ONlettering per poter commentare.";
+  const WANT_BTN  = "Iscriviti alla newsletter";
+  const SIGNUP_HASH = "#/portal/signup";
 
-    const root =
-      document.querySelector('.gh-comments') ||
-      document.querySelector('.comments') ||
-      document.querySelector('[data-comments]');
+  const norm = (s) => (s || "").replace(/\s+/g, " ").trim().toLowerCase();
 
-    if (!root) return;
-
-    /* -----------------------------------------------------
-       1) Rimuovi "Commenta per primo"
-       ----------------------------------------------------- */
-    root.querySelectorAll('h3, h4, p, div').forEach(el => {
-      const t = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      if (t === 'commenta per primo') {
-        el.remove();
-      }
-    });
-
-    /* -----------------------------------------------------
-       2) Rimuovi login / accedi
-       ----------------------------------------------------- */
-    root.querySelectorAll('a, button').forEach(el => {
-      const t = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-      if (
-        t.includes('accedi') ||
-        t.includes('login') ||
-        t.includes('sei già iscritto')
-      ) {
-        el.remove();
-      }
-    });
-
-    /* -----------------------------------------------------
-       3) Trova o crea il testo CTA
-       ----------------------------------------------------- */
-    let textEl = Array.from(root.querySelectorAll('p, div'))
-      .find(el => {
-        const t = (el.textContent || '').toLowerCase();
-        return t.includes('commentare');
-      });
-
-    if (!textEl) {
-      textEl = document.createElement('p');
-      root.appendChild(textEl);
-    }
-
-    textEl.textContent = 'Iscriviti a ONlettering per poter commentare.';
-
-    /* -----------------------------------------------------
-       4) Bottone unico: Iscriviti alla newsletter
-       ----------------------------------------------------- */
-    let btn = root.querySelector('.onl-comment-signup-btn');
-
-    if (!btn) {
-      btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'onl-comment-signup-btn gh-btn gh-primary-btn';
-      btn.textContent = 'Iscriviti alla newsletter';
-
-      btn.addEventListener('click', () => {
-        window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
-        location.hash = '#/portal/signup';
-      });
-
-      root.appendChild(btn);
-    }
+  function isLikelyCommentsArea(el){
+    if (!el || !el.closest) return false;
+    return !!el.closest(
+      '.gh-comments, .comments, .post-comments, .comment, .gh-post-comments, [data-testid*="comment"], section'
+    );
   }
 
-  // primo passaggio
-  fixCommentsCTA();
+  function openSignup(e){
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    // Trigger Portal
+    window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
+    if (location.hash !== SIGNUP_HASH) location.hash = SIGNUP_HASH;
+    // “colpetto” extra per temi che non ascoltano sempre hashchange
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  }
 
-  // piccolo burst: Ghost può renderizzare i commenti dopo
+  function fixOneCtaBlock(root){
+    if (!root || !root.querySelectorAll) return;
+
+    // 1) Nascondi “Commenta per primo” (solo dentro area commenti)
+    root.querySelectorAll('h1,h2,h3,h4,p,div,span').forEach(el => {
+      const t = norm(el.textContent);
+      if (t === "commenta per primo" && isLikelyCommentsArea(el)) {
+        el.style.setProperty("display", "none", "important");
+        el.setAttribute("data-onl-hidden", "commenta-per-primo");
+      }
+    });
+
+    // 2) Trova un contenitore CTA “members-only” vicino ai bottoni
+    const ctas = Array.from(root.querySelectorAll('section,div')).filter(box => {
+      if (!isLikelyCommentsArea(box)) return false;
+      const txt = norm(box.textContent);
+      const hasHint = txt.includes("per poter commentare") || txt.includes("iscriviti") || txt.includes("accedi");
+      const hasBtn  = !!box.querySelector('a,button');
+      return hasHint && hasBtn;
+    });
+
+    ctas.forEach(box => {
+      // 2a) Imposta/normalizza UNA sola riga testo desiderata
+      // Cerca la riga esistente “Iscriviti a ... per poter commentare.” oppure crea un <p> semplice
+      let line = Array.from(box.querySelectorAll('p,div,span'))
+        .find(el => {
+          const t = norm(el.textContent);
+          return t.includes("per poter commentare");
+        });
+
+      if (!line) {
+        // crea riga sotto l’eventuale header nascosto
+        line = document.createElement('p');
+        line.style.margin = "8px 0 0";
+        // inserisci vicino all’inizio del box
+        box.insertBefore(line, box.firstChild);
+      }
+      line.textContent = WANT_LINE;
+
+      // Elimina eventuali altre righe “per poter commentare” duplicate
+      Array.from(box.querySelectorAll('p,div,span')).forEach(el => {
+        if (el === line) return;
+        const t = norm(el.textContent);
+        if (t.includes("per poter commentare")) {
+          el.parentNode && el.parentNode.removeChild(el);
+        }
+      });
+
+      // 2b) Prendi IL BOTTONE ESISTENTE (prima “Accedi ora”) e trasformalo
+      // Preferenza: button/anchor “Accedi ora”, poi “Accedi”, poi il primo bottone “primary”
+      const btnCandidates = Array.from(box.querySelectorAll('button,a')).filter(el => {
+        const t = norm(el.textContent);
+        return t === "accedi ora" || t === "accedi" || t === "sign in";
+      });
+
+      let mainBtn =
+        btnCandidates[0] ||
+        box.querySelector('button.gh-btn, a.gh-btn, button[type="submit"], a[href*="#/portal/"]') ||
+        box.querySelector('button, a');
+
+      if (mainBtn) {
+        // Rendilo un “trigger signup” senza creare nuovi elementi
+        mainBtn.textContent = WANT_BTN;
+
+        // Se è un <a>, metti href corretto
+        if (mainBtn.tagName.toLowerCase() === 'a') {
+          mainBtn.setAttribute('href', SIGNUP_HASH);
+          mainBtn.setAttribute('data-portal', 'signup');
+        } else {
+          // Se è button
+          mainBtn.setAttribute('data-portal', 'signup');
+        }
+
+        // Evita che Ghost/tema lo riporti a signin: intercettiamo click
+        if (!mainBtn.__onl_bound_signup) {
+          mainBtn.__onl_bound_signup = true;
+          mainBtn.addEventListener('click', openSignup, true);
+        }
+      }
+
+      // 2c) Rimuovi eventuali BOTTONI DUPLICATI “Iscriviti alla newsletter”
+      const allBtns = Array.from(box.querySelectorAll('button,a'));
+      const dupes = allBtns.filter(el => el !== mainBtn && norm(el.textContent) === norm(WANT_BTN));
+      dupes.forEach(el => el.parentNode && el.parentNode.removeChild(el));
+
+      // 2d) Rimuovi la riga “Sei già iscritto? Accedi” qui nei commenti (se presente),
+      // perché ora l’azione principale è signup
+      Array.from(box.querySelectorAll('div,p,span')).forEach(el => {
+        const t = norm(el.textContent);
+        if (t.includes("sei già iscritto") && t.includes("accedi")) {
+          // non toccare nulla se dentro un form vero (super raro nei commenti)
+          if (el.querySelector && el.querySelector('input,form')) return;
+          el.style.setProperty("display","none","important");
+          el.setAttribute("data-onl-hidden","sei-gia-iscritto-commenti");
+        }
+      });
+    });
+  }
+
+  function runFix(){
+    fixOneCtaBlock(document);
+  }
+
+  // Prima passata
+  runFix();
+
+  // Piccolo “burst” per battere rendering ritardati
   let n = 0;
-  const iv = setInterval(() => {
-    fixCommentsCTA();
-    if (++n > 20) clearInterval(iv);
-  }, 300);
+  const burst = setInterval(() => {
+    runFix();
+    if (++n >= 20) clearInterval(burst);
+  }, 250);
 
+  // Observer leggero e temporaneo (no freeze)
+  const mo = new MutationObserver(() => runFix());
+  mo.observe(document.body, { childList: true, subtree: true });
+
+  setTimeout(() => {
+    try { mo.disconnect(); } catch(_) {}
+  }, 12000);
 });
+</script>
 
