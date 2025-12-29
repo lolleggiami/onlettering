@@ -1433,7 +1433,12 @@ onlOnReady(() => {
 });
 
 /* =========================================================
-   Ghost Portal (MODAL iframe) — ONLETTERING FINAL SAFE (FIX RIGA)
+   Ghost Portal — ONLETTERING (iframe + in-page) SAFE
+   - Supporta Portal in-page (div.gh-portal-content...) e iframe
+   - Forza signup dal Portal button flottante
+   - Customizza signup e signin
+   - Nasconde “Sei già iscritto? Accedi.” SOLO in signup
+   - No freeze: observer solo temporaneo + throttled
    ========================================================= */
 onlOnReady(() => {
 
@@ -1451,17 +1456,24 @@ onlOnReady(() => {
       titleText: "Accedi",
       description:
         "Inserisci la tua email per commentare i post e accedere alle risorse di ONlettering.",
-      emailPlaceholder: "ciao@onlettering.com"
+      emailPlaceholder: "ciao@onlettering.com",
+      // opzionale: qui puoi aggiungere altro testo sotto la descrizione se vuoi
+      extra: ""
     }
   };
 
-  function findPortalIframe(){
-    return Array.from(document.querySelectorAll('iframe')).find(f => {
-      const t = (f.getAttribute('title') || '').toLowerCase();
-      const c = (f.className || '').toLowerCase();
-      return t.includes('portal') || c.includes('gh-portal');
-    });
-  }
+  /* ---------- utilities ---------- */
+  const rafThrottle = (fn) => {
+    let scheduled = false;
+    return (...args) => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        fn(...args);
+      });
+    };
+  };
 
   function hashMode(){
     const h = (location.hash || '').toLowerCase();
@@ -1470,135 +1482,83 @@ onlOnReady(() => {
     return null;
   }
 
-  function getMode(doc){
+  function detectModeFromRoot(root){
+    try{
+      const c = root.querySelector('.gh-portal-content');
+      if (c?.classList.contains('signin')) return 'signin';
+      if (c?.classList.contains('signup')) return 'signup';
+    }catch(_){}
+    return null;
+  }
+
+  function getMode(root){
+    // priorità: intenzione richiesta dal click
     if (window.__ONL_PORTAL_WANTED_MODE__) return window.__ONL_PORTAL_WANTED_MODE__;
+    // poi hash
     const hm = hashMode();
     if (hm) return hm;
+    // poi classi del portal in-page
+    const dm = detectModeFromRoot(root);
+    if (dm) return dm;
+
+    // fallback: password -> signin
     try{
-      if (doc.querySelector('input[type="password"]')) return 'signin';
+      if (root.querySelector('input[type="password"], input[name="password"]')) return 'signin';
     }catch(_){}
+
     return 'signup';
   }
 
-  function setModeClass(doc, mode){
+  function getPortalRootDocs(){
+    const docs = [];
+
+    // 1) Portal in-page (document)
+    docs.push(document);
+
+    // 2) eventuale iframe portal
+    Array.from(document.querySelectorAll('iframe')).forEach(f => {
+      try{
+        const t = (f.getAttribute('title') || '').toLowerCase();
+        const c = (f.className || '').toString().toLowerCase();
+        if (!(t.includes('portal') || c.includes('gh-portal'))) return;
+
+        const d = f.contentDocument || f.contentWindow?.document;
+        if (d && d.documentElement) docs.push(d);
+      }catch(_){}
+    });
+
+    // dedupe
+    return Array.from(new Set(docs));
+  }
+
+  /* ---------- hide bottom row in signup (robust) ---------- */
+  function hideSignupSigninRow(root){
     try{
-      doc.body.classList.toggle('onl-portal-is-signup', mode === 'signup');
-      doc.body.classList.toggle('onl-portal-is-signin', mode === 'signin');
+      const portal = root.querySelector('.gh-portal-content.signup');
+      if (!portal) return;
+
+      // La riga nel tuo HTML è: .gh-portal-signup-message (contiene "Sei già iscritto?" + bottone Accedi)
+      const row =
+        portal.querySelector('.gh-portal-signup-message') ||
+        portal.querySelector('[data-testid="signin-switch"]')?.closest('.gh-portal-signup-message');
+
+      if (row) row.style.setProperty('display', 'none', 'important');
     }catch(_){}
   }
 
-  function hideSignupSigninRow(doc){
-    if (!doc || !doc.querySelector) return false;
+  /* ---------- apply customizations to a given root (document or iframe document) ---------- */
+  function apply(root){
+    if (!root || !root.documentElement) return;
 
-    let hiddenAny = false;
-
-    const linkCandidates = Array.from(
-      doc.querySelectorAll('a[href*="signin"], a[data-portal="signin"]')
-    );
-
-    if (!linkCandidates.length) {
-      doc.querySelectorAll('a').forEach(a => {
-        const txt = (a.textContent || '').replace(/\s+/g,' ').trim().toLowerCase();
-        if (txt === 'accedi') linkCandidates.push(a);
-      });
-    }
-
-    const pickRow = (el) => {
-      if (!el) return null;
-      let row =
-        el.closest('p') ||
-        el.closest('div') ||
-        el.closest('footer') ||
-        el.parentElement;
-
-      if (!row) return null;
-
-      const dangerous = (node) =>
-        !!node.querySelector?.('input[type="email"], input[name="email"], button[type="submit"], button[data-portal-button]');
-
-      if (dangerous(row)) {
-        const up = row.parentElement;
-        if (up && !dangerous(up)) row = up;
-        else return null;
-      }
-      return row;
-    };
-
-    for (const a of linkCandidates) {
-      const row = pickRow(a);
-      if (!row) continue;
-      if (row.getAttribute('data-onl-hidden') === 'signup-signin-row') continue;
-
-      row.style.setProperty('display', 'none', 'important');
-      row.setAttribute('data-onl-hidden', 'signup-signin-row');
-      hiddenAny = true;
-    }
-
-    const re = /sei\s+gi[aà]\s+iscritto/i;
-    const textBlocks = Array.from(doc.querySelectorAll('p, .gh-portal-content p, footer, .gh-portal-content footer, div'));
-
-    for (const el of textBlocks) {
-      const t = (el.textContent || '').replace(/\s+/g,' ').trim();
-      if (!t) continue;
-      if (!re.test(t)) continue;
-
-      if (el.querySelector && el.querySelector('input[type="email"], button[type="submit"], button[data-portal-button]')) continue;
-
-      const row = pickRow(el) || el;
-      if (!row) continue;
-
-      if (row.querySelector && row.querySelector('input[type="email"], button[type="submit"], button[data-portal-button]')) continue;
-
-      row.style.setProperty('display', 'none', 'important');
-      row.setAttribute('data-onl-hidden', 'signup-signin-row-text');
-      hiddenAny = true;
-    }
-
-    return hiddenAny;
-  }
-
-  function ensureIframeObserver(doc){
-    if (!doc || !doc.documentElement) return;
-    if (doc.__onl_signup_observer_attached) return;
-    doc.__onl_signup_observer_attached = true;
-
-    let scheduled = false;
-    const schedule = () => {
-      if (scheduled) return;
-      scheduled = true;
-      requestAnimationFrame(() => {
-        scheduled = false;
-        try{
-          if (getMode(doc) === 'signup') hideSignupSigninRow(doc);
-        }catch(_){}
-      });
-    };
-
-    const mo = new MutationObserver(() => schedule());
-    try{
-      mo.observe(doc.documentElement, { childList: true, subtree: true });
-      doc.__onl_signup_observer = mo;
-    }catch(_){}
-
-    setTimeout(() => {
-      try{ mo.disconnect(); }catch(_){}
-      doc.__onl_signup_observer = null;
-      doc.__onl_signup_observer_attached = false;
-    }, 8000);
-  }
-
-  function apply(doc){
-    if (!doc || !doc.documentElement) return;
-
-    const mode = getMode(doc);
+    const mode = getMode(root);
     const C = CFG[mode] || CFG.signup;
 
-    setModeClass(doc, mode);
-
-    if (!doc.getElementById('onl-portal-style')) {
-      const st = doc.createElement('style');
+    // inject style once per root doc
+    if (!root.getElementById('onl-portal-style')) {
+      const st = root.createElement('style');
       st.id = 'onl-portal-style';
       st.textContent = `
+        /* bandiera sinistra SOLO nel Portal */
         .gh-portal-content,
         .gh-portal-content * {
           text-align: left !important;
@@ -1616,18 +1576,27 @@ onlOnReady(() => {
           font-style:italic;
         }
 
+        .onl-portal-extra{
+          margin:10px 0 0;
+          line-height:1.35;
+          opacity:.75;
+          font-size:.98em;
+        }
+
+        /* nascondi “Powered by Ghost” se presente */
         .gh-powered-by, a.gh-powered-by, .powered-by-ghost{
           display:none !important;
         }
       `;
-      doc.head.appendChild(st);
+      root.head.appendChild(st);
     }
 
+    // titolo
     const title =
-      doc.querySelector('.gh-portal-content h1') ||
-      doc.querySelector('.gh-portal-content h2') ||
-      doc.querySelector('h1') ||
-      doc.querySelector('h2');
+      root.querySelector('.gh-portal-content h1') ||
+      root.querySelector('.gh-portal-content h2') ||
+      root.querySelector('h1') ||
+      root.querySelector('h2');
 
     if (title) {
       if (mode === 'signup') title.innerHTML = C.titleHtml;
@@ -1636,66 +1605,146 @@ onlOnReady(() => {
       title.style.setProperty('width', '100%', 'important');
     }
 
+    // placeholder email
     const email =
-      doc.querySelector('input[type="email"]') ||
-      doc.querySelector('input[name="email"]') ||
-      doc.querySelector('input[autocomplete="email"]') ||
-      doc.querySelector('input[inputmode="email"]');
+      root.querySelector('.gh-portal-content input[type="email"]') ||
+      root.querySelector('.gh-portal-content input[name="email"]') ||
+      root.querySelector('.gh-portal-content input[autocomplete="email"]');
 
     if (email && C.emailPlaceholder) email.placeholder = C.emailPlaceholder;
 
-    let desc = doc.querySelector('.onl-portal-desc');
+    // descrizione custom sotto il titolo
+    let desc = root.querySelector('.gh-portal-content .onl-portal-desc');
     if (!desc && title) {
-      desc = doc.createElement('p');
+      desc = root.createElement('p');
       desc.className = 'onl-portal-desc';
       title.insertAdjacentElement('afterend', desc);
     }
     if (desc) desc.textContent = C.description || '';
 
+    // extra (signin opzionale)
+    if (mode === 'signin') {
+      if (C.extra) {
+        let extra = root.querySelector('.gh-portal-content .onl-portal-extra');
+        if (!extra && desc) {
+          extra = root.createElement('p');
+          extra.className = 'onl-portal-extra';
+          desc.insertAdjacentElement('afterend', extra);
+        }
+        if (extra) extra.textContent = C.extra;
+      } else {
+        root.querySelectorAll('.gh-portal-content .onl-portal-extra').forEach(n => n.remove());
+      }
+    }
+
+    // subdesc SOLO signup
     if (mode === 'signup') {
-      let sub = doc.querySelector('.onl-portal-subdesc');
+      let sub = root.querySelector('.gh-portal-content .onl-portal-subdesc');
       if (!sub && desc) {
-        sub = doc.createElement('p');
+        sub = root.createElement('p');
         sub.className = 'onl-portal-subdesc';
         desc.insertAdjacentElement('afterend', sub);
       }
       if (sub) sub.textContent = C.subDescription || '';
 
-      hideSignupSigninRow(doc);
-      ensureIframeObserver(doc);
+      // ✅ nascondi la riga “Sei già iscritto? Accedi.”
+      hideSignupSigninRow(root);
     } else {
-      doc.querySelectorAll('.onl-portal-subdesc').forEach(e => e.remove());
+      root.querySelectorAll('.gh-portal-content .onl-portal-subdesc').forEach(n => n.remove());
     }
   }
 
-  function run(){
+  /* ---------- burst + short-lived observer (per battere i rerender) ---------- */
+  function runBurst(){
     let n = 0;
-    const id = setInterval(() => {
+    const tick = () => {
       n++;
-      const iframe = findPortalIframe();
-      if (iframe?.contentDocument) apply(iframe.contentDocument);
-      if (iframe || n > 80) clearInterval(id);
-    }, 100);
+      getPortalRootDocs().forEach(apply);
+      if (n >= 40) clearInterval(id); // ~4s
+    };
+    tick();
+    const id = setInterval(tick, 100);
+
+    // observer TEMPORANEO (2.5s) solo per riapplicare se Portal ricalcola
+    const stopAt = Date.now() + 2500;
+    const onMut = rafThrottle(() => {
+      if (Date.now() > stopAt) {
+        try{ mo.disconnect(); }catch(_){}
+        return;
+      }
+      getPortalRootDocs().forEach(apply);
+    });
+
+    const mo = new MutationObserver(onMut);
+    try{
+      mo.observe(document.body, { childList:true, subtree:true });
+    }catch(_){}
+    setTimeout(() => { try{ mo.disconnect(); }catch(_){} }, 2600);
   }
 
-  document.addEventListener('click', e => {
-    const t = e.target.closest('[data-portal],a[href*="signin"],a[href*="signup"],a[href*="#/portal/"]');
-    if (!t) return;
+  /* ---------- force open helpers ---------- */
+  function openSignup(){
+    window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
+    location.hash = '#/portal/signup';
+    runBurst();
+  }
 
-    const h = (t.getAttribute('href') || '').toLowerCase();
-    const d = (t.getAttribute('data-portal') || '').toLowerCase();
+  function openSignin(){
+    window.__ONL_PORTAL_WANTED_MODE__ = 'signin';
+    location.hash = '#/portal/signin';
+    runBurst();
+  }
 
-    window.__ONL_PORTAL_WANTED_MODE__ =
-      (h.includes('signin') || d === 'signin') ? 'signin' :
-      (h.includes('signup') || d === 'signup') ? 'signup' : null;
+  /* =========================================================
+     1) PORTAL BUTTON FLOTTANTE → SEMPRE SIGNUP
+     (molto più “mirato” adesso: data-portal-button / trigger / aria-label)
+     ========================================================= */
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest(
+      '[data-portal-button], .gh-portal-trigger, .portal-trigger, .gh-portal-triggerbtn, button[aria-label*="newsletter" i], button[aria-label*="subscribe" i], button[aria-label*="iscriv" i]'
+    );
+    if (!el) return;
 
-    setTimeout(run, 30);
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    openSignup();
   }, true);
 
-  window.addEventListener('hashchange', run);
-  window.addEventListener('pageshow', run);
+  /* =========================================================
+     2) SWITCH interno: bottone “Accedi” dentro signup
+        (nel tuo HTML: data-testid="signin-switch")
+     ========================================================= */
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-testid="signin-switch"], [data-test-button="signin-switch"]');
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    openSignin();
+  }, true);
+
+  /* (opzionale) se hai anche lo switch inverso in signin → signup */
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-testid="signup-switch"], [data-test-button="signup-switch"]');
+    if (!btn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    openSignup();
+  }, true);
+
+  /* triggers */
+  window.addEventListener('hashchange', runBurst);
+  window.addEventListener('pageshow', runBurst);
 
 });
+
 
 /* =========================
    EDGE (v1.0.0) — Nascondi "Accedi" in header (desktop + mobile)
