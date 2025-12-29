@@ -1759,3 +1759,97 @@ onlOnReady(() => {
   mo.observe(document.body, { childList: true, subtree: true });
 
 });
+
+
+/* =========================================================
+   COMMENTI POST — CTA MEMBERS (non loggato)
+   - Rimuove "Commenta per primo"
+   - Rimuove login / accedi
+   - Unifica CTA → Iscriviti alla newsletter
+   - Apre il Portal signup (Newslettering)
+   ========================================================= */
+onlOnReady(() => {
+
+  function fixCommentsCTA() {
+    // agiamo solo nelle pagine post
+    if (!document.body.classList.contains('post-template')) return;
+
+    const root =
+      document.querySelector('.gh-comments') ||
+      document.querySelector('.comments') ||
+      document.querySelector('[data-comments]');
+
+    if (!root) return;
+
+    /* -----------------------------------------------------
+       1) Rimuovi "Commenta per primo"
+       ----------------------------------------------------- */
+    root.querySelectorAll('h3, h4, p, div').forEach(el => {
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (t === 'commenta per primo') {
+        el.remove();
+      }
+    });
+
+    /* -----------------------------------------------------
+       2) Rimuovi login / accedi
+       ----------------------------------------------------- */
+    root.querySelectorAll('a, button').forEach(el => {
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (
+        t.includes('accedi') ||
+        t.includes('login') ||
+        t.includes('sei già iscritto')
+      ) {
+        el.remove();
+      }
+    });
+
+    /* -----------------------------------------------------
+       3) Trova o crea il testo CTA
+       ----------------------------------------------------- */
+    let textEl = Array.from(root.querySelectorAll('p, div'))
+      .find(el => {
+        const t = (el.textContent || '').toLowerCase();
+        return t.includes('commentare');
+      });
+
+    if (!textEl) {
+      textEl = document.createElement('p');
+      root.appendChild(textEl);
+    }
+
+    textEl.textContent = 'Iscriviti a ONlettering per poter commentare.';
+
+    /* -----------------------------------------------------
+       4) Bottone unico: Iscriviti alla newsletter
+       ----------------------------------------------------- */
+    let btn = root.querySelector('.onl-comment-signup-btn');
+
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'onl-comment-signup-btn gh-btn gh-primary-btn';
+      btn.textContent = 'Iscriviti alla newsletter';
+
+      btn.addEventListener('click', () => {
+        window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
+        location.hash = '#/portal/signup';
+      });
+
+      root.appendChild(btn);
+    }
+  }
+
+  // primo passaggio
+  fixCommentsCTA();
+
+  // piccolo burst: Ghost può renderizzare i commenti dopo
+  let n = 0;
+  const iv = setInterval(() => {
+    fixCommentsCTA();
+    if (++n > 20) clearInterval(iv);
+  }, 300);
+
+});
+
