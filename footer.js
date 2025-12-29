@@ -1759,32 +1759,3 @@ onlOnReady(() => {
   mo.observe(document.body, { childList: true, subtree: true });
 
 });
-
-
-
-<script>
-(function () {
-  // lista degli slug "ponte"
-  const OUTBOUND_SLUGS = [
-    "insta-lettering-01",
-    "insta-lettering-02"
-  ];
-
-  document.addEventListener("click", function (e) {
-    const a = e.target.closest("a");
-    if (!a) return;
-
-    const href = a.getAttribute("href");
-    if (!href) return;
-
-    const url = new URL(href, location.origin);
-    const slug = url.pathname.replace(/^\/|\/$/g, "").split("/").pop();
-
-    if (!OUTBOUND_SLUGS.includes(slug)) return;
-
-    e.preventDefault();
-    window.open(url.href, "_blank", "noopener");
-  });
-})();
-</script>
-
