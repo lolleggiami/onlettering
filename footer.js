@@ -1811,63 +1811,94 @@ onlOnReady(() => {
 
 
 /* =========================================================
-   Floating Portal Button -> APRI SEMPRE SIGNUP (Newslettering)
-   Strategia:
-   1) intercetta click sul bottone flottante
-   2) imposta wanted mode = signup
-   3) clicca un trigger "ufficiale" data-portal="signup" (se esiste)
-      così Ghost apre il pannello giusto e il tuo custom si aggancia
-   4) fallback: hash #/portal/signup
+   COMMENTI POST — CTA MEMBERS (non loggato)
+   - Rimuove "Commenta per primo"
+   - Rimuove login / accedi
+   - Unifica CTA → Iscriviti alla newsletter
+   - Apre il Portal signup (Newslettering)
    ========================================================= */
 onlOnReady(() => {
-  const FLOATING_SEL = '.gh-portal-triggerbtn-container[data-testid="portal-trigger-button"]';
 
-  function openSignupViaOfficialTrigger() {
-    // trigger ufficiali che Ghost già gestisce
-    const official =
-      document.querySelector('[data-portal="signup"]') ||
-      document.querySelector('a[href*="#/portal/signup"]') ||
-      document.querySelector('a[href*="#/signup"]') ||
-      document.querySelector('button[data-portal="signup"]');
+  function fixCommentsCTA() {
+    // agiamo solo nelle pagine post
+    if (!document.body.classList.contains('post-template')) return;
 
-    if (official) {
-      official.click();
-      return true;
+    const root =
+      document.querySelector('.gh-comments') ||
+      document.querySelector('.comments') ||
+      document.querySelector('[data-comments]');
+
+    if (!root) return;
+
+    /* -----------------------------------------------------
+       1) Rimuovi "Commenta per primo"
+       ----------------------------------------------------- */
+    root.querySelectorAll('h3, h4, p, div').forEach(el => {
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (t === 'commenta per primo') {
+        el.remove();
+      }
+    });
+
+    /* -----------------------------------------------------
+       2) Rimuovi login / accedi
+       ----------------------------------------------------- */
+    root.querySelectorAll('a, button').forEach(el => {
+      const t = (el.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+      if (
+        t.includes('accedi') ||
+        t.includes('login') ||
+        t.includes('sei già iscritto')
+      ) {
+        el.remove();
+      }
+    });
+
+    /* -----------------------------------------------------
+       3) Trova o crea il testo CTA
+       ----------------------------------------------------- */
+    let textEl = Array.from(root.querySelectorAll('p, div'))
+      .find(el => {
+        const t = (el.textContent || '').toLowerCase();
+        return t.includes('commentare');
+      });
+
+    if (!textEl) {
+      textEl = document.createElement('p');
+      root.appendChild(textEl);
     }
-    return false;
+
+    textEl.textContent = 'Iscriviti a ONlettering per poter commentare.';
+
+    /* -----------------------------------------------------
+       4) Bottone unico: Iscriviti alla newsletter
+       ----------------------------------------------------- */
+    let btn = root.querySelector('.onl-comment-signup-btn');
+
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'onl-comment-signup-btn gh-btn gh-primary-btn';
+      btn.textContent = 'Iscriviti alla newsletter';
+
+      btn.addEventListener('click', () => {
+        window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
+        location.hash = '#/portal/signup';
+      });
+
+      root.appendChild(btn);
+    }
   }
 
-  function openSignupViaHash() {
-    const h = (location.hash || '').toLowerCase();
-    if (!h.includes('#/portal/signup')) {
-      location.hash = '#/portal/signup';
-    } else {
-      // se già su signup, “rimbalzo” leggero per forzare eventuali listener
-      window.dispatchEvent(new Event('hashchange'));
-    }
-  }
+  // primo passaggio
+  fixCommentsCTA();
 
-  // Capture: vinci contro eventuali handler di Ghost sul bottone flottante
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest(FLOATING_SEL);
-    if (!btn) return;
+  // piccolo burst: Ghost può renderizzare i commenti dopo
+  let n = 0;
+  const iv = setInterval(() => {
+    fixCommentsCTA();
+    if (++n > 20) clearInterval(iv);
+  }, 300);
 
-    // blocca comportamento originale
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    // forza il tuo routing interno
-    window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
-
-    // prova prima la via “pulita”: click su un trigger Ghost ufficiale
-    const ok = openSignupViaOfficialTrigger();
-
-    // fallback: hash route (Ghost spesso la intercetta)
-    if (!ok) openSignupViaHash();
-
-    // aiuta il tuo script custom: un piccolo burst di hashchange
-    setTimeout(() => window.dispatchEvent(new Event('hashchange')), 50);
-    setTimeout(() => window.dispatchEvent(new Event('hashchange')), 180);
-  }, true);
 });
+
