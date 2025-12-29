@@ -1766,7 +1766,7 @@ onlOnReady(() => {
 (function () {
   // slug interno -> URL Instagram
   const OUTBOUND = {
-    "pompeo": "https://www.instagram.com/p/DQPGypfjoKU/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==",
+    "pompeo": "https://www.instagram.com/p/DQPGypfjoKU/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==/",
   };
 
   function normalizeInternalHref(href) {
@@ -1819,3 +1819,4 @@ onlOnReady(() => {
   window.addEventListener("load", install);
 })();
 </script>
+
