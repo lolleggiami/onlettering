@@ -1759,3 +1759,46 @@ onlOnReady(() => {
   mo.observe(document.body, { childList: true, subtree: true });
 
 });
+
+
+<script>
+(function () {
+  // Metti qui gli slug-ponte (quelli che hai usato nei redirect)
+  const OUTBOUND_SLUGS = new Set([
+    "pompeo",
+  ]);
+
+  function normalizePath(href) {
+    try {
+      const url = new URL(href, location.origin);
+
+      // solo link interni al sito (evita mailto:, tel:, #, ecc.)
+      if (url.origin !== location.origin) return null;
+
+      const parts = url.pathname.replace(/^\/|\/$/g, "").split("/");
+      return parts[parts.length - 1] || null; // slug
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function run() {
+    // Prende SOLO i link interni, così non tocca la newsletter (che spesso usa form/script propri)
+    const links = document.querySelectorAll('a[href^="/"], a[href^="' + location.origin + '/"]');
+
+    links.forEach(a => {
+      const slug = normalizePath(a.getAttribute("href"));
+      if (!slug) return;
+
+      if (OUTBOUND_SLUGS.has(slug)) {
+        a.setAttribute("target", "_blank");
+        a.setAttribute("rel", "noopener noreferrer");
+      }
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", run);
+  window.addEventListener("load", run);
+})();
+</script>
+
