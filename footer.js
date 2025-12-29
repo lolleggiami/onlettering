@@ -1762,54 +1762,81 @@ onlOnReady(() => {
 
 
 /* =========================================================
-   PORTAL FLOATING BUTTON → FORZA SIGNUP (la Newslettering)
-   - Compatibile con Ghost Portal ufficiale
-   - Funziona con “Show portal button”
-   - Nessun accesso all’iframe
+   PORTAL FLOATING BUTTON (Ghost) → FORZA SEMPRE SIGNUP
+   - Intercetta via event delegation + composedPath (molto robusto)
+   - Non richiede selettore esatto del bottone
+   - Non tocca l’iframe
    ========================================================= */
 onlOnReady(() => {
 
-  function forceSignup(e){
-    // intercetta solo click reali
+  function isPortalFloatingButtonEvent(e){
+    const path = (typeof e.composedPath === 'function') ? e.composedPath() : [];
+    const nodes = path.length ? path : [e.target];
+
+    return nodes.some(node => {
+      if (!node || !node.getAttribute) return false;
+
+      const cls = (node.className || '').toString().toLowerCase();
+      const id  = (node.id || '').toString().toLowerCase();
+
+      // data-portal-button è molto comune nel bottone flottante
+      const hasPortalBtnAttr = node.hasAttribute('data-portal-button');
+
+      // classi frequenti nel Portal trigger
+      const looksLikeTrigger =
+        cls.includes('gh-portal-trigger') ||
+        cls.includes('portal-trigger') ||
+        cls.includes('triggerbtn') ||
+        cls.includes('portal-button') ||
+        cls.includes('gh-portal-btn') ||
+        id.includes('gh-portal');
+
+      // a volte il wrapper ha aria-label “Subscribe/Sign up” ecc.
+      const aria = (node.getAttribute('aria-label') || '').toLowerCase();
+      const title = (node.getAttribute('title') || '').toLowerCase();
+      const looksLikeLabel =
+        aria.includes('subscribe') || aria.includes('iscriv') || aria.includes('newsletter') ||
+        title.includes('subscribe') || title.includes('iscriv') || title.includes('newsletter');
+
+      return hasPortalBtnAttr || looksLikeTrigger || looksLikeLabel;
+    });
+  }
+
+  function forceSignupOpen(){
+    window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
+
+    // forza hash
+    if (location.hash !== '#/portal/signup') {
+      location.hash = '#/portal/signup';
+    } else {
+      // se già su signup, “rinfresca” l’apertura (alcune build non riaprono)
+      const h = location.hash;
+      location.hash = '#';
+      setTimeout(() => { location.hash = h; }, 0);
+    }
+  }
+
+  // cattura PRIMA di Ghost (capture = true)
+  document.addEventListener('click', (e) => {
+    if (!isPortalFloatingButtonEvent(e)) return;
+
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
 
-    // forza il mode signup
-    window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
+    forceSignupOpen();
+  }, true);
 
-    // trigger ufficiale Ghost
-    if (window.location.hash !== '#/portal/signup') {
-      window.location.hash = '#/portal/signup';
-    }
+  // anche Enter/Space se il bottone è focusabile
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (!isPortalFloatingButtonEvent(e)) return;
 
-    return false;
-  }
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
 
-  function hookPortalButton(){
-    // Ghost Portal button (varia per tema / versione)
-    const btn =
-      document.querySelector('[data-portal="signup"]') ||
-      document.querySelector('[data-portal-button]') ||
-      document.querySelector('.gh-portal-triggerbtn') ||
-      document.querySelector('.gh-portal-triggerbtn-wrapper button');
-
-    if (!btn || btn.__onl_hooked) return;
-    btn.__onl_hooked = true;
-
-    btn.addEventListener('click', forceSignup, true);
-  }
-
-  // primo tentativo
-  hookPortalButton();
-
-  // breve finestra di osservazione (Portal button può arrivare dopo)
-  let n = 0;
-  const iv = setInterval(() => {
-    hookPortalButton();
-    if (++n > 30) clearInterval(iv);
-  }, 300);
+    forceSignupOpen();
+  }, true);
 
 });
-
-
