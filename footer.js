@@ -1811,177 +1811,63 @@ onlOnReady(() => {
 
 
 /* =========================================================
-   PORTAL FLOATING BUTTON (Ghost) → FORZA SEMPRE SIGNUP
-   - Intercetta via event delegation + composedPath (molto robusto)
-   - Non richiede selettore esatto del bottone
-   - Non tocca l’iframe
+   Floating Portal Button -> APRI SEMPRE SIGNUP (Newslettering)
+   Strategia:
+   1) intercetta click sul bottone flottante
+   2) imposta wanted mode = signup
+   3) clicca un trigger "ufficiale" data-portal="signup" (se esiste)
+      così Ghost apre il pannello giusto e il tuo custom si aggancia
+   4) fallback: hash #/portal/signup
    ========================================================= */
 onlOnReady(() => {
+  const FLOATING_SEL = '.gh-portal-triggerbtn-container[data-testid="portal-trigger-button"]';
 
-  function isPortalFloatingButtonEvent(e){
-    const path = (typeof e.composedPath === 'function') ? e.composedPath() : [];
-    const nodes = path.length ? path : [e.target];
+  function openSignupViaOfficialTrigger() {
+    // trigger ufficiali che Ghost già gestisce
+    const official =
+      document.querySelector('[data-portal="signup"]') ||
+      document.querySelector('a[href*="#/portal/signup"]') ||
+      document.querySelector('a[href*="#/signup"]') ||
+      document.querySelector('button[data-portal="signup"]');
 
-    return nodes.some(node => {
-      if (!node || !node.getAttribute) return false;
-
-      const cls = (node.className || '').toString().toLowerCase();
-      const id  = (node.id || '').toString().toLowerCase();
-
-      // data-portal-button è molto comune nel bottone flottante
-      const hasPortalBtnAttr = node.hasAttribute('data-portal-button');
-
-      // classi frequenti nel Portal trigger
-      const looksLikeTrigger =
-        cls.includes('gh-portal-trigger') ||
-        cls.includes('portal-trigger') ||
-        cls.includes('triggerbtn') ||
-        cls.includes('portal-button') ||
-        cls.includes('gh-portal-btn') ||
-        id.includes('gh-portal');
-
-      // a volte il wrapper ha aria-label “Subscribe/Sign up” ecc.
-      const aria = (node.getAttribute('aria-label') || '').toLowerCase();
-      const title = (node.getAttribute('title') || '').toLowerCase();
-      const looksLikeLabel =
-        aria.includes('subscribe') || aria.includes('iscriv') || aria.includes('newsletter') ||
-        title.includes('subscribe') || title.includes('iscriv') || title.includes('newsletter');
-
-      return hasPortalBtnAttr || looksLikeTrigger || looksLikeLabel;
-    });
-  }
-
-  function forceSignupOpen(){
-    window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
-
-    // forza hash
-    if (location.hash !== '#/portal/signup') {
-      location.hash = '#/portal/signup';
-    } else {
-      // se già su signup, “rinfresca” l’apertura (alcune build non riaprono)
-      const h = location.hash;
-      location.hash = '#';
-      setTimeout(() => { location.hash = h; }, 0);
+    if (official) {
+      official.click();
+      return true;
     }
+    return false;
   }
 
-  // cattura PRIMA di Ghost (capture = true)
-  document.addEventListener('click', (e) => {
-    if (!isPortalFloatingButtonEvent(e)) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    forceSignupOpen();
-  }, true);
-
-  // anche Enter/Space se il bottone è focusabile
-  document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' && e.key !== ' ') return;
-    if (!isPortalFloatingButtonEvent(e)) return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-
-    forceSignupOpen();
-  }, true);
-
-});
-
-
-/* =========================================================
-   Ghost Portal trigger button (floating) -> forza SIGNUP
-   - Aggancia il bottone ufficiale "Show portal button"
-   - Forza hash #/portal/signup prima dell’apertura
-   - Re-apply burst per riprendere la customizzazione
-   ========================================================= */
-onlOnReady(() => {
-  const TRIGGER_SEL = '.gh-portal-triggerbtn-container[data-testid="portal-trigger-button"]';
-
-  function forceSignupHash() {
-    // Se siamo già in portal signup, non fare niente
+  function openSignupViaHash() {
     const h = (location.hash || '').toLowerCase();
     if (!h.includes('#/portal/signup')) {
-      // Forza la route che poi il tuo custom script intercetta bene
       location.hash = '#/portal/signup';
+    } else {
+      // se già su signup, “rimbalzo” leggero per forzare eventuali listener
+      window.dispatchEvent(new Event('hashchange'));
     }
   }
 
-  // helper: prova a richiamare la tua routine di apply (se esiste nello scope globale)
-  function kickCustomBurst() {
-    // Se nel tuo script portal hai una funzione run() locale NON è accessibile qui.
-    // Quindi facciamo una strategia robusta: settiamo il "wanted mode" e lasciamo
-    // che l'handler hashchange/click del tuo script faccia il resto.
+  // Capture: vinci contro eventuali handler di Ghost sul bottone flottante
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest(FLOATING_SEL);
+    if (!btn) return;
+
+    // blocca comportamento originale
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    // forza il tuo routing interno
     window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
 
-    // Burst “cieco” che non rompe niente: aspetta che iframe/in-page sia pronto
-    let n = 0;
-    const id = setInterval(() => {
-      n++;
+    // prova prima la via “pulita”: click su un trigger Ghost ufficiale
+    const ok = openSignupViaOfficialTrigger();
 
-      const iframe = Array.from(document.querySelectorAll('iframe')).find(f => {
-        const t = (f.getAttribute('title') || '').toLowerCase();
-        const c = (f.className || '').toLowerCase();
-        return t.includes('portal') || c.includes('gh-portal');
-      });
+    // fallback: hash route (Ghost spesso la intercetta)
+    if (!ok) openSignupViaHash();
 
-      // Se è iframe e accessibile, triggeriamo un evento che normalmente il tuo script ascolta
-      // (hashchange) e basta. Non tocchiamo doc se non serve.
-      if (iframe || document.querySelector('.gh-portal-content')) {
-        window.dispatchEvent(new Event('hashchange'));
-        clearInterval(id);
-      }
-
-      if (n > 40) clearInterval(id); // ~4s max
-    }, 100);
-  }
-
-  // Intercetta in capture così vinci contro handler interni Ghost
-  document.addEventListener(
-    'click',
-    (e) => {
-      const btn = e.target.closest(TRIGGER_SEL);
-      if (!btn) return;
-
-      // IMPORTANTISSIMO: blocca il click originale
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-
-      // 1) forza route
-      forceSignupHash();
-
-      // 2) ora “ri-clicca” in modo controllato dopo un tick,
-      //    così Ghost apre il portal ma già puntato a signup
-      setTimeout(() => {
-        try {
-          // riattiva temporaneamente il click originale senza recursion:
-          btn.__onl_skip = true;
-          btn.click();
-        } catch (_) {}
-
-        // 3) parte il tuo custom apply
-        setTimeout(kickCustomBurst, 30);
-
-        // cleanup
-        setTimeout(() => {
-          try { delete btn.__onl_skip; } catch (_) {}
-        }, 0);
-      }, 0);
-    },
-    true
-  );
-
-  // evita loop: se il click viene ri-triggerato da noi, lo lasciamo passare
-  document.addEventListener(
-    'click',
-    (e) => {
-      const btn = e.target.closest(TRIGGER_SEL);
-      if (!btn) return;
-      if (btn.__onl_skip) return; // lascia Ghost fare il suo lavoro
-    },
-    true
-  );
+    // aiuta il tuo script custom: un piccolo burst di hashchange
+    setTimeout(() => window.dispatchEvent(new Event('hashchange')), 50);
+    setTimeout(() => window.dispatchEvent(new Event('hashchange')), 180);
+  }, true);
 });
