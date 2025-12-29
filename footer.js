@@ -1764,71 +1764,58 @@ onlOnReady(() => {
 
 <script>
 (function () {
-  // 1) Metti qui SOLO gli slug "ponte" (quelli che hai usato per i post che devono aprire IG)
+  // slug interno -> URL Instagram
   const OUTBOUND = {
-    "pompeo": "https://www.instagram.com/p/DQPGypfjoKU/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==/",
+    "pompeo": "https://www.instagram.com/p/DQPGypfjoKU/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA==",
   };
 
-  // 2) Identifica il "contenitore" del feed post, così NON tocchiamo header/footer/newsletter/portal
-  function getFeedRoot() {
-    return (
-      document.querySelector(".post-feed") ||
-      document.querySelector(".gh-feed") ||
-      document.querySelector(".feed") ||
-      document.querySelector("main") ||
-      document.body
-    );
-  }
-
-  function isPortalOrNewsletterTarget(el) {
-    // Escludi Ghost Portal / subscribe / members (molto importante)
-    if (!el) return false;
-    if (el.closest('[data-portal], .gh-portal-trigger, [class*="subscribe"], [class*="newsletter"], [class*="members"]')) return true;
-    return false;
-  }
-
-  function slugFromHref(href) {
+  function normalizeInternalHref(href) {
     try {
-      const url = new URL(href, location.origin);
-      if (url.origin !== location.origin) return null;
-      const parts = url.pathname.replace(/^\/|\/$/g, "").split("/");
-      return parts[parts.length - 1] || null;
+      const u = new URL(href, location.origin);
+      if (u.origin !== location.origin) return null;
+      // normalizza: /slug/ (con slash finale)
+      let p = u.pathname;
+      if (!p.endsWith("/")) p += "/";
+      return p;
     } catch (e) {
       return null;
     }
   }
 
-  // 3) Intercetta SOLO click dentro il feed, SOLO su card/post, SOLO se slug è in OUTBOUND
-  function onClickCapture(e) {
-    const feed = getFeedRoot();
-    if (!feed.contains(e.target)) return; // fuori dal feed -> non tocchiamo nulla
+  function install() {
+    // Costruisci la lista di path interni che vuoi “hijackare”
+    const wantedPaths = new Map(); // "/slug/" -> instagramUrl
+    Object.entries(OUTBOUND).forEach(([slug, ig]) => {
+      wantedPaths.set("/" + slug.replace(/^\/|\/$/g, "") + "/", ig);
+    });
 
-    // prendi il link più vicino (se c'è)
-    const a = e.target.closest("a[href]");
-    if (!a) return;
+    // Scansiona tutti i link e seleziona SOLO quelli che puntano ai path “ponte”
+    const links = document.querySelectorAll('a[href]');
+    links.forEach(a => {
+      // Escludi esplicitamente Portal/newsletter/members e link speciali
+      if (a.closest('[data-portal], .gh-portal-trigger, [class*="newsletter"], [class*="subscribe"], [class*="members"]')) return;
+      const rawHref = a.getAttribute("href") || "";
+      if (rawHref.startsWith("#") || rawHref.startsWith("mailto:") || rawHref.startsWith("tel:")) return;
 
-    // escludi portal/newsletter a prescindere
-    if (isPortalOrNewsletterTarget(a)) return;
+      const path = normalizeInternalHref(rawHref);
+      if (!path) return;
 
-    // restringi ancora: lavora solo dentro un article/card
-    const article = a.closest("article");
-    if (!article) return;
+      const ig = wantedPaths.get(path);
+      if (!ig) return;
 
-    const slug = slugFromHref(a.getAttribute("href"));
-    if (!slug) return;
+      // IMPORTANTISSIMO: attacca il comportamento SOLO a questo link
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        // Questo handler è “diretto” sul link cliccato => nuova scheda consentita
+        window.open(ig, "_blank", "noopener,noreferrer");
+      });
 
-    const target = OUTBOUND[slug];
-    if (!target) return;
-
-    // Questo è il punto: click “utente” => nuova scheda consentita
-    e.preventDefault();
-    e.stopPropagation();
-
-    window.open(target, "_blank", "noopener,noreferrer");
+      // opzionale (non necessario ma utile)
+      a.setAttribute("rel", "noopener noreferrer");
+    });
   }
 
-  // Capture=true: ci arriviamo prima degli handler del tema (che spesso “hijackano” il click)
-  document.addEventListener("click", onClickCapture, true);
+  document.addEventListener("DOMContentLoaded", install);
+  window.addEventListener("load", install);
 })();
 </script>
-
