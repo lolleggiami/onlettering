@@ -1760,6 +1760,53 @@ onlOnReady(() => {
 
 });
 
+<script>
+/* =========================================================
+   PORTAL FLOATING BUTTON -> forza apertura "Signup" (la Newslettering)
+   - Intercetta il bottone flottante Portal (in basso a destra)
+   - Reindirizza a #/portal/signup
+   - Funziona anche se Ghost cambia l'inner button
+   ========================================================= */
+onlOnReady(() => {
+
+  function isPortalFloatingTrigger(el){
+    if (!el) return false;
+    // HTML che mi hai incollato:
+    // <div class="gh-portal-triggerbtn-container with-label" data-testid="portal-trigger-button">...</div>
+    return !!el.closest?.('[data-testid="portal-trigger-button"], .gh-portal-triggerbtn-container');
+  }
+
+  function openSignup(){
+    // Imposta la modalità desiderata per la tua logica Portal
+    window.__ONL_PORTAL_WANTED_MODE__ = 'signup';
+
+    // Se Ghost Portal è già in pagina, il modo più affidabile è impostare hash
+    // (Portal ascolta hashchange e apre/routea il pannello)
+    const target = '#/portal/signup';
+
+    if (location.hash !== target) {
+      location.hash = target;
+    } else {
+      // se già uguale, “ritocca” per forzare reazione in alcuni casi
+      window.dispatchEvent(new HashChangeEvent('hashchange'));
+    }
+  }
+
+  // Intercetta click sul floating button (capture, così lo prendiamo prima di Ghost)
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!isPortalFloatingTrigger(t)) return;
+
+    // impediamo il comportamento default di Ghost
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    openSignup();
+  }, true);
+
+});
+</script>
 
 
 (function () {
