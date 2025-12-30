@@ -1761,10 +1761,10 @@ onlOnReady(() => {
 });
 
 /* =========================================================
-   Ghost Portal — FIX “second click opens wrong panel”
-   - Forza SEMPRE route: #/portal/signup sui trigger newsletter
-   - Seleziona l’iframe Portal VISIBILE più recente
-   - Observer solo dentro iframe
+   Ghost Portal — FIX “third click opens wrong panel”
+   - BLOCCA handler Ghost sul trigger newsletter
+   - Forza sempre route corretta con “hash bounce”
+   - Seleziona iframe Portal VISIBILE più recente
    ========================================================= */
 (function () {
   const onReady = (fn) => {
@@ -1791,9 +1791,6 @@ onlOnReady(() => {
       }
     };
 
-    // -----------------------------
-    // Helpers: visibilità iframe
-    // -----------------------------
     function isVisible(el) {
       if (!el) return false;
       const r = el.getBoundingClientRect();
@@ -1803,31 +1800,21 @@ onlOnReady(() => {
       return true;
     }
 
-    // -----------------------------
-    // Trova il Portal iframe VISIBILE più recente
-    // (Ghost può lasciarne uno vecchio nascosto)
-    // -----------------------------
     function findVisiblePortalDoc() {
       const iframes = Array.from(document.querySelectorAll("iframe"));
-      // scorri al contrario: quello più recente tende a stare in fondo
       for (let i = iframes.length - 1; i >= 0; i--) {
         const f = iframes[i];
         if (!isVisible(f)) continue;
-
         try {
           const doc = f.contentDocument || f.contentWindow?.document;
           if (!doc || !doc.documentElement) continue;
           if (!doc.querySelector(".gh-portal-content")) continue;
-
           return { doc, iframe: f };
         } catch (_) {}
       }
       return null;
     }
 
-    // -----------------------------
-    // Mode affidabile: classi su .gh-portal-content
-    // -----------------------------
     function getMode(doc) {
       const root = doc.querySelector(".gh-portal-content");
       if (!root) return "signup";
@@ -1836,9 +1823,6 @@ onlOnReady(() => {
       return "signup";
     }
 
-    // -----------------------------
-    // CSS + hide powered by
-    // -----------------------------
     function ensureStyle(doc) {
       if (doc.getElementById("onl-portal-style")) return;
       const st = doc.createElement("style");
@@ -1855,21 +1839,13 @@ onlOnReady(() => {
       doc.head.appendChild(st);
     }
 
-    // -----------------------------
-    // Nasconde SOLO la riga “Sei già iscritto? Accedi.”
-    // nel markup che mi hai incollato: .gh-portal-signup-message
-    // -----------------------------
     function hideBottomRowSignup(doc) {
       const msg = doc.querySelector(".gh-portal-signup-message");
       if (msg) msg.style.setProperty("display", "none", "important");
     }
 
-    // -----------------------------
-    // Applica custom
-    // -----------------------------
     function apply(doc) {
       if (!doc || !doc.documentElement) return;
-
       ensureStyle(doc);
 
       const mode = getMode(doc);
@@ -1911,17 +1887,12 @@ onlOnReady(() => {
           desc.insertAdjacentElement("afterend", sub);
         }
         if (sub) sub.textContent = C.subDescription || "";
-
         hideBottomRowSignup(doc);
       } else {
         doc.querySelectorAll(".onl-portal-subdesc").forEach((e) => e.remove());
       }
     }
 
-    // -----------------------------
-    // Observer SOLO nel doc corrente
-    // (non “memoizziamo” globalmente, perché Ghost può cambiare iframe ad ogni open)
-    // -----------------------------
     function attachObserver(doc) {
       if (!doc || doc.__onlObs) return;
       let raf = 0;
@@ -1932,27 +1903,12 @@ onlOnReady(() => {
           try { apply(doc); } catch (_) {}
         });
       });
-
       try {
         mo.observe(doc.documentElement, { childList: true, subtree: true });
         doc.__onlObs = mo;
       } catch (_) {}
     }
 
-    // -----------------------------
-    // Forza route signup PRIMA dell’apertura
-    // (serve soprattutto per il trigger flottante)
-    // -----------------------------
-    function forceSignupRoute() {
-      // mettiamo hash sempre uguale per evitare che Ghost “ricordi” l’ultima vista
-      if (location.hash.toLowerCase() !== "#/portal/signup") {
-        location.hash = "#/portal/signup";
-      }
-    }
-
-    // -----------------------------
-    // Burst: aspetta comparsa iframe visibile e applica
-    // -----------------------------
     function runBurst() {
       let n = 0;
       const id = setInterval(() => {
@@ -1962,15 +1918,27 @@ onlOnReady(() => {
           apply(found.doc);
           attachObserver(found.doc);
         }
-        if (n >= 40) clearInterval(id); // ~4s
+        if (n >= 50) clearInterval(id); // ~5s
       }, 100);
     }
 
-    // -----------------------------
-    // Intercetta i trigger “newsletter”
-    // - trigger flottante: .gh-portal-triggerbtn-container
-    // - trigger in header: data-portal="signup" / href #/portal/signup
-    // -----------------------------
+    // 🔥 FORZATURA HARD: sempre “bounce” hash -> signup
+    function openSignupHard() {
+      const target = "#/portal/signup";
+      const bounce = "#/portal"; // neutro
+
+      // se siamo già su signup, facciamo bounce per forzare rerender
+      if ((location.hash || "").toLowerCase() === target) {
+        location.hash = bounce;
+        setTimeout(() => { location.hash = target; }, 0);
+      } else {
+        // anche qui: prima neutro, poi target (più stabile di un solo set)
+        location.hash = bounce;
+        setTimeout(() => { location.hash = target; }, 0);
+      }
+    }
+
+    // Intercetta SOLO trigger newsletter (incluso flottante)
     document.addEventListener("click", (e) => {
       const trg = e.target.closest?.(
         ".gh-portal-triggerbtn-container[data-testid='portal-trigger-button'], " +
@@ -1979,19 +1947,17 @@ onlOnReady(() => {
       );
       if (!trg) return;
 
-      // IMPORTANTISSIMO: forza route *prima* che Ghost gestisca il click
-      try {
-        forceSignupRoute();
-      } catch (_) {}
+      // ✅ blocca Ghost (altrimenti al 3° click può aprire la vista “vecchia”)
+      e.preventDefault();
+      e.stopImmediatePropagation();
 
-      // poi lasciamo che Ghost apra, e noi applichiamo dopo
+      openSignupHard();
       setTimeout(runBurst, 30);
     }, true);
 
     window.addEventListener("hashchange", runBurst);
     window.addEventListener("pageshow", runBurst);
 
-    // boot
     runBurst();
   });
 })();
