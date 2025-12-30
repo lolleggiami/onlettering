@@ -1765,6 +1765,24 @@ onlOnReady(() => {
 (function () {
   const MAP = {
     "pompeo": "https://www.instagram.com/p/DQPGypfjoKU/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "the-spirit": "https://www.instagram.com/p/DQNGp7kFRN2/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "chris-ware": "https://www.instagram.com/p/DQI6BWZiLBJ/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "stampare-un-fumetto": "https://www.instagram.com/p/DQHEdwSDG9I/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "logo-superman": "https://www.instagram.com/p/DQDwxflDe6p/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "habibi": "https://www.instagram.com/p/DP8QFIRDR52/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "todd-klein": "https://www.instagram.com/p/DP5hdttjqhr/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "guida-ames": "https://www.instagram.com/p/DP3pV8UjZ74/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "balloon-dinamici": "https://www.instagram.com/reel/DPos58eE7qH/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "logo-vertigo": "https://www.instagram.com/p/DP0a6IlkRzg/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "dark-knight-returns": "https://www.instagram.com/p/DPqw1qPAUg-/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "love-comic-sans": "https://www.instagram.com/p/DPk3KppFR_p/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "font-hand-lettered": "https://www.instagram.com/p/DPiY5LZCKQV/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "real-crossbusters": "https://www.instagram.com/p/DPftu-kgjzG/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "fontastici-4": "https://www.instagram.com/p/DPS1lgDk4w3/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "creare-una-pipetta": "https://www.instagram.com/reel/DPv7viiDoSn/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "3-graphic-designer": "https://www.instagram.com/p/DPx7DZZji5H/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+    "asterios-polyp": "https://www.instagram.com/p/DPY6UxBiDks/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="
+  
   };
 
   const IGNORE_SEL = '[data-portal], .gh-portal-trigger, [class*="newsletter"], [class*="subscribe"], [class*="members"], form, input, button, textarea, select';
