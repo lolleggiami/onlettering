@@ -1761,17 +1761,11 @@ onlOnReady(() => {
 });
 
 /* =========================================================
-   Ghost Portal (MODAL iframe) — ONLETTERING ALWAYS-CUSTOM (SAFE)
-   - Funziona con QUALSIASI trigger (header / floating / commenti)
-   - Aggancia l’IFRAME MODALE vero (esclude trigger iframe)
-   - Bandiera sinistra + titoli custom
-   - Nasconde Powered by Ghost
-   - Nasconde robusto “Sei già iscritto? Accedi.” in signup
-   - Observer breve e localizzato (no freeze)
+   Ghost Portal (MODAL iframe) — ONLETTERING ALWAYS-CUSTOM (BURST FIX)
+   - Fix: dal 2° click Portal rerender -> re-apply per ~3s
    ========================================================= */
 
 (function () {
-  // Usa la tua onlOnReady se esiste, altrimenti fallback
   const onReady = (fn) => {
     if (typeof window.onlOnReady === "function") return window.onlOnReady(fn);
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", fn);
@@ -1779,7 +1773,6 @@ onlOnReady(() => {
   };
 
   onReady(() => {
-
     const CFG = {
       signup: {
         titleHtml: "<em>la</em> Newslettering",
@@ -1797,9 +1790,6 @@ onlOnReady(() => {
       }
     };
 
-    /* -------------------------
-       1) trova SOLO l’iframe MODALE (non il trigger iframe)
-       ------------------------- */
     function isTriggerFrame(iframe) {
       const t = (iframe?.getAttribute("title") || "").toLowerCase();
       const c = (iframe?.className || "").toString().toLowerCase();
@@ -1821,46 +1811,28 @@ onlOnReady(() => {
         const c = (f.className || "").toString().toLowerCase();
         const testid = (f.dataset?.testid || "").toString().toLowerCase();
 
-        return (
-          t.includes("portal") ||
-          c.includes("gh-portal") ||
-          testid.includes("portal")
-        );
+        return t.includes("portal") || c.includes("gh-portal") || testid.includes("portal");
       });
     }
 
-    /* -------------------------
-       2) capisci MODE *dentro* iframe (non dipendere da hash)
-       ------------------------- */
     function detectMode(doc) {
       try {
-        // Signin spesso ha password (o comunque non ha “signin-switch”)
         if (doc.querySelector('input[type="password"], input[name="password"]')) return "signin";
-
-        // Signup ha sempre lo switch “Accedi” (button data-testid="signin-switch")
-        if (doc.querySelector('[data-testid="signin-switch"],[data-test-button="signin-switch"]')) return "signup";
+        if (doc.querySelector('[data-testid="signin-switch"],[data-test-button="signin-switch"]'))
+          return "signup";
       } catch (_) {}
-
-      // fallback hash
       const h = (location.hash || "").toLowerCase();
       if (h.includes("signin")) return "signin";
       return "signup";
     }
 
-    /* -------------------------
-       3) nascondi SOLO la riga “Sei già iscritto? Accedi.” (senza toccare form)
-       ------------------------- */
     function hideSignupSigninRow(doc) {
       if (!doc || !doc.querySelector) return false;
 
-      let hidden = false;
-
-      const candidates = Array.from(
-        doc.querySelectorAll('[data-testid="signin-switch"],[data-test-button="signin-switch"], a[href*="signin"], a[data-portal="signin"]')
-      );
-
       const isDangerous = (node) =>
-        !!node.querySelector?.('input[type="email"], input[name="email"], button[type="submit"], .gh-portal-btn-main');
+        !!node.querySelector?.(
+          'input[type="email"], input[name="email"], button[type="submit"], .gh-portal-btn-main'
+        );
 
       const pickRow = (el) => {
         let row =
@@ -1872,7 +1844,6 @@ onlOnReady(() => {
 
         if (!row) return null;
 
-        // non nascondere mai un contenitore che include input/bottone submit
         if (isDangerous(row)) {
           const up = row.parentElement;
           if (up && !isDangerous(up)) row = up;
@@ -1881,16 +1852,22 @@ onlOnReady(() => {
         return row;
       };
 
+      let hidden = false;
+
+      const candidates = Array.from(
+        doc.querySelectorAll(
+          '[data-testid="signin-switch"],[data-test-button="signin-switch"], a[href*="signin"], a[data-portal="signin"]'
+        )
+      );
+
       for (const el of candidates) {
         const row = pickRow(el);
         if (!row) continue;
-
         row.style.setProperty("display", "none", "important");
         row.setAttribute("data-onl-hidden", "signup-signin-row");
         hidden = true;
       }
 
-      // fallback testuale (se cambia markup)
       if (!hidden) {
         const re = /sei\s+gi[aà]\s+iscritto/i;
         const blocks = Array.from(doc.querySelectorAll("p, div, footer, section"));
@@ -1911,26 +1888,20 @@ onlOnReady(() => {
       return hidden;
     }
 
-    /* -------------------------
-       4) applica custom
-       ------------------------- */
     function applyToPortalDoc(doc) {
       if (!doc || !doc.documentElement) return;
 
       const mode = detectMode(doc);
       const C = CFG[mode] || CFG.signup;
 
-      // CSS (una volta)
       if (!doc.getElementById("onl-portal-style")) {
         const st = doc.createElement("style");
         st.id = "onl-portal-style";
         st.textContent = `
-          /* bandiera sinistra SOLO nel Portal */
           .gh-portal-content,
           .gh-portal-content *{
             text-align:left !important;
           }
-
           .onl-portal-desc{
             margin:16px 0 0;
             line-height:1.45;
@@ -1941,8 +1912,6 @@ onlOnReady(() => {
             opacity:.45;
             font-style:italic;
           }
-
-          /* nascondi Powered by Ghost */
           .gh-powered-by, a.gh-powered-by, .powered-by-ghost{
             display:none !important;
           }
@@ -1950,7 +1919,6 @@ onlOnReady(() => {
         doc.head.appendChild(st);
       }
 
-      // titolo
       const title =
         doc.querySelector(".gh-portal-content h1") ||
         doc.querySelector(".gh-portal-content h2") ||
@@ -1964,7 +1932,6 @@ onlOnReady(() => {
         title.style.setProperty("width", "100%", "important");
       }
 
-      // placeholder email
       const email =
         doc.querySelector('input[type="email"]') ||
         doc.querySelector('input[name="email"]') ||
@@ -1973,7 +1940,6 @@ onlOnReady(() => {
 
       if (email && C.emailPlaceholder) email.placeholder = C.emailPlaceholder;
 
-      // descrizione
       let desc = doc.querySelector(".onl-portal-desc");
       if (!desc && title) {
         desc = doc.createElement("p");
@@ -1982,7 +1948,6 @@ onlOnReady(() => {
       }
       if (desc) desc.textContent = C.description || "";
 
-      // subdesc solo signup
       if (mode === "signup") {
         let sub = doc.querySelector(".onl-portal-subdesc");
         if (!sub && desc) {
@@ -1992,40 +1957,13 @@ onlOnReady(() => {
         }
         if (sub) sub.textContent = C.subDescription || "";
 
-        // nascondi riga in basso (robusto)
         hideSignupSigninRow(doc);
-
-        // observer SOLO iframe e SOLO per pochi secondi (per battere rerender Portal)
-        if (!doc.__onl_mo_attached) {
-          doc.__onl_mo_attached = true;
-
-          let raf = false;
-          const mo = new MutationObserver(() => {
-            if (raf) return;
-            raf = true;
-            requestAnimationFrame(() => {
-              raf = false;
-              try { hideSignupSigninRow(doc); } catch (_) {}
-            });
-          });
-
-          try { mo.observe(doc.documentElement, { childList: true, subtree: true }); } catch(_) {}
-
-          setTimeout(() => {
-            try { mo.disconnect(); } catch (_) {}
-            doc.__onl_mo_attached = false;
-          }, 8000);
-        }
-
       } else {
         doc.querySelectorAll(".onl-portal-subdesc").forEach((e) => e.remove());
       }
     }
 
-    /* -------------------------
-       5) hook globale: quando compare l’iframe modale, applica
-       ------------------------- */
-    function hookPortalOnce() {
+    function hookPortal() {
       const iframe = findPortalModalIframe();
       if (!iframe) return false;
 
@@ -2035,6 +1973,7 @@ onlOnReady(() => {
 
         applyToPortalDoc(doc);
 
+        // se Portal cambia DOM senza load, non basta bindare solo load: ok, lo lasciamo comunque
         if (!iframe.__onl_bound) {
           iframe.__onl_bound = true;
           iframe.addEventListener("load", () => {
@@ -2047,38 +1986,51 @@ onlOnReady(() => {
 
         return true;
       } catch (_) {
-        // se cross-origin (non dovrebbe su Portal), non insistere
         return true;
       }
     }
 
-    // polling breve quando qualcosa apre il portal
+    /* -------------------------
+       BURST FIX: re-apply per ~3s
+       ------------------------- */
+    let burstTimer = null;
+
     function burst() {
-      let n = 0;
-      const id = setInterval(() => {
-        n++;
-        const ok = hookPortalOnce();
-        if (ok || n >= 80) clearInterval(id); // max ~8s
-      }, 100);
+      if (burstTimer) clearInterval(burstTimer);
+
+      const started = Date.now();
+      burstTimer = setInterval(() => {
+        hookPortal();
+
+        // stop dopo ~3s
+        if (Date.now() - started > 3000) {
+          clearInterval(burstTimer);
+          burstTimer = null;
+        }
+      }, 120);
     }
 
-    // trigger: qualsiasi click che può aprire Portal
-    document.addEventListener("click", (e) => {
-      const t = e.target.closest?.(
-        '[data-portal], a[href*="#/portal/"], a[href*="#/signup"], a[href*="#/signin"], button[data-testid="portal-trigger-button"], .gh-portal-triggerbtn-container'
-      );
-      if (!t) return;
-      setTimeout(burst, 30);
-    }, true);
+    // Trigger: qualsiasi click che può aprire Portal
+    document.addEventListener(
+      "click",
+      (e) => {
+        const t = e.target.closest?.(
+          '[data-portal], a[href*="#/portal/"], a[href*="#/signup"], a[href*="#/signin"], .gh-portal-triggerbtn-container, [data-testid="portal-trigger-button"]'
+        );
+        if (!t) return;
+        setTimeout(burst, 30);
+      },
+      true
+    );
 
     window.addEventListener("hashchange", burst);
     window.addEventListener("pageshow", burst);
 
-    // e al boot
+    // boot
     burst();
-
   });
 })();
+
 
 
 
