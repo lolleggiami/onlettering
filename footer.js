@@ -2155,3 +2155,25 @@ onlOnReady(() => {
   setTimeout(upsertTagline, 1200);
 })();
 
+
+(function () {
+  if (!document.body.classList.contains('home-template')) return;
+
+  function applyHomeHeaderOffset() {
+    const head = document.querySelector('#gh-head, .gh-head');
+    if (!head) return;
+    const h = head.offsetHeight || 0;
+    document.body.style.paddingTop = h + 'px';
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyHomeHeaderOffset);
+  } else {
+    applyHomeHeaderOffset();
+  }
+
+  window.addEventListener('resize', applyHomeHeaderOffset);
+  setTimeout(applyHomeHeaderOffset, 300);
+  setTimeout(applyHomeHeaderOffset, 1200);
+})();
+
