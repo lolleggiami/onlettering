@@ -1761,10 +1761,10 @@ onlOnReady(() => {
 });
 
 /* =========================================================
-   Ghost Portal — FIX “third click opens wrong panel”
-   - BLOCCA handler Ghost sul trigger newsletter
-   - Forza sempre route corretta con “hash bounce”
-   - Seleziona iframe Portal VISIBILE più recente
+   Ghost Portal — FIX robusto (2° click/3° click)
+   - NON blocca click Ghost (così la modale si apre sempre)
+   - Applica custom ogni volta che l'iframe Portal appare/si aggiorna
+   - Forza la view desiderata cliccando i pulsanti interni (signin-switch / signup-switch)
    ========================================================= */
 (function () {
   const onReady = (fn) => {
@@ -1791,35 +1791,41 @@ onlOnReady(() => {
       }
     };
 
-    function isVisible(el) {
-      if (!el) return false;
-      const r = el.getBoundingClientRect();
-      if (!r.width || !r.height) return false;
-      const cs = getComputedStyle(el);
-      if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) return false;
-      return true;
+    // quale pannello vogliamo aprire quando l'utente clicca
+    // - newsletter trigger => signup
+    // - eventuali link "Accedi" => signin
+    window.__ONL_PORTAL_WANTED_MODE__ = window.__ONL_PORTAL_WANTED_MODE__ || null;
+
+    function isPortalIframe(f) {
+      const t = (f.getAttribute("title") || "").toLowerCase();
+      const c = String(f.className || "").toLowerCase();
+      const testid = String(f.dataset?.testid || "").toLowerCase();
+      // escludi il trigger frame se mai fosse un iframe
+      if (t.includes("portal-trigger") || c.includes("triggerbtn") || testid.includes("portal-trigger")) return false;
+      return t.includes("portal") || c.includes("gh-portal") || testid.includes("portal");
     }
 
-    function findVisiblePortalDoc() {
-      const iframes = Array.from(document.querySelectorAll("iframe"));
-      for (let i = iframes.length - 1; i >= 0; i--) {
-        const f = iframes[i];
-        if (!isVisible(f)) continue;
+    function findPortalDocs() {
+      const out = [];
+      const iframes = Array.from(document.querySelectorAll("iframe")).filter(isPortalIframe);
+      for (const f of iframes) {
         try {
           const doc = f.contentDocument || f.contentWindow?.document;
           if (!doc || !doc.documentElement) continue;
           if (!doc.querySelector(".gh-portal-content")) continue;
-          return { doc, iframe: f };
+          out.push({ iframe: f, doc });
         } catch (_) {}
       }
-      return null;
+      return out;
     }
 
-    function getMode(doc) {
+    function detectMode(doc) {
       const root = doc.querySelector(".gh-portal-content");
       if (!root) return "signup";
       if (root.classList.contains("signin")) return "signin";
       if (root.classList.contains("signup")) return "signup";
+      // fallback: in signin di solito appare password/oppure testi diversi
+      if (doc.querySelector('input[type="password"], input[name="password"]')) return "signin";
       return "signup";
     }
 
@@ -1829,26 +1835,26 @@ onlOnReady(() => {
       st.id = "onl-portal-style";
       st.textContent = `
         .gh-portal-content,
-        .gh-portal-content * { text-align: left !important; }
+        .gh-portal-content * { text-align:left !important; }
 
         .onl-portal-desc{ margin:16px 0 0; line-height:1.45; opacity:.88; }
         .onl-portal-subdesc{ margin:8px 0 0; opacity:.45; font-style:italic; }
 
-        .gh-powered-by, a.gh-powered-by, .powered-by-ghost { display:none !important; }
+        .gh-powered-by, a.gh-powered-by, .powered-by-ghost{ display:none !important; }
       `;
       doc.head.appendChild(st);
     }
 
-    function hideBottomRowSignup(doc) {
+    function hideSignupBottomRow(doc) {
+      // il markup che mi hai incollato è: .gh-portal-signup-message
       const msg = doc.querySelector(".gh-portal-signup-message");
       if (msg) msg.style.setProperty("display", "none", "important");
     }
 
-    function apply(doc) {
-      if (!doc || !doc.documentElement) return;
+    function applyCustom(doc) {
       ensureStyle(doc);
 
-      const mode = getMode(doc);
+      const mode = detectMode(doc);
       const C = CFG[mode] || CFG.signup;
 
       const title =
@@ -1858,8 +1864,8 @@ onlOnReady(() => {
         doc.querySelector("h2");
 
       if (title) {
-        if (mode === "signup") title.innerHTML = C.titleHtml;
-        else title.textContent = C.titleText || "";
+        if (mode === "signup") title.innerHTML = CFG.signup.titleHtml;
+        else title.textContent = CFG.signin.titleText;
         title.style.setProperty("text-align", "left", "important");
         title.style.setProperty("width", "100%", "important");
       }
@@ -1869,7 +1875,7 @@ onlOnReady(() => {
         doc.querySelector('input[name="email"]') ||
         doc.querySelector('input[autocomplete="email"]');
 
-      if (email && C.emailPlaceholder) email.placeholder = C.emailPlaceholder;
+      if (email) email.placeholder = C.emailPlaceholder || "";
 
       let desc = doc.querySelector(".onl-portal-desc");
       if (!desc && title) {
@@ -1886,82 +1892,145 @@ onlOnReady(() => {
           sub.className = "onl-portal-subdesc";
           desc.insertAdjacentElement("afterend", sub);
         }
-        if (sub) sub.textContent = C.subDescription || "";
-        hideBottomRowSignup(doc);
+        if (sub) sub.textContent = CFG.signup.subDescription || "";
+        hideSignupBottomRow(doc);
       } else {
         doc.querySelectorAll(".onl-portal-subdesc").forEach((e) => e.remove());
       }
     }
 
-    function attachObserver(doc) {
-      if (!doc || doc.__onlObs) return;
-      let raf = 0;
+    function forceModeInsideIframe(doc, wanted) {
+      const current = detectMode(doc);
+      if (!wanted || current === wanted) return;
+
+      // Se siamo su signup e vogliamo signin: clicca signin-switch
+      if (wanted === "signin") {
+        const btn =
+          doc.querySelector('button[data-testid="signin-switch"]') ||
+          doc.querySelector('button[data-test-button="signin-switch"]') ||
+          Array.from(doc.querySelectorAll("button, a")).find((el) =>
+            (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase() === "accedi"
+          );
+        if (btn) btn.click();
+        return;
+      }
+
+      // Se siamo su signin e vogliamo signup: clicca signup-switch (il gemello, di solito esiste)
+      if (wanted === "signup") {
+        const btn =
+          doc.querySelector('button[data-testid="signup-switch"]') ||
+          doc.querySelector('button[data-test-button="signup-switch"]') ||
+          Array.from(doc.querySelectorAll("button, a")).find((el) => {
+            const t = (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
+            return t.includes("iscriviti");
+          });
+        if (btn) btn.click();
+        return;
+      }
+    }
+
+    // observer leggero sul documento principale: quando Ghost aggiunge/rimuove iframe, ri-applica
+    let mainScheduled = false;
+    const mainMO = new MutationObserver(() => {
+      if (mainScheduled) return;
+      mainScheduled = true;
+      requestAnimationFrame(() => {
+        mainScheduled = false;
+        runBurst();
+      });
+    });
+    mainMO.observe(document.body, { childList: true, subtree: true });
+
+    // observer per singolo iframe doc (per i rerender interni)
+    function attachIframeObserver(doc) {
+      if (doc.__onlPortalObs) return;
+      let scheduled = false;
       const mo = new MutationObserver(() => {
-        if (raf) return;
-        raf = requestAnimationFrame(() => {
-          raf = 0;
-          try { apply(doc); } catch (_) {}
+        if (scheduled) return;
+        scheduled = true;
+        requestAnimationFrame(() => {
+          scheduled = false;
+          try {
+            const wanted = window.__ONL_PORTAL_WANTED_MODE__ || "signup";
+            forceModeInsideIframe(doc, wanted);
+            applyCustom(doc);
+          } catch (_) {}
         });
       });
       try {
         mo.observe(doc.documentElement, { childList: true, subtree: true });
-        doc.__onlObs = mo;
+        doc.__onlPortalObs = mo;
       } catch (_) {}
     }
 
     function runBurst() {
       let n = 0;
+      const wanted = window.__ONL_PORTAL_WANTED_MODE__ || "signup";
+
       const id = setInterval(() => {
         n++;
-        const found = findVisiblePortalDoc();
-        if (found?.doc) {
-          apply(found.doc);
-          attachObserver(found.doc);
+
+        const docs = findPortalDocs();
+        for (const { doc } of docs) {
+          try {
+            // 1) forza mode corretto (se Ghost ha aperto la view sbagliata)
+            forceModeInsideIframe(doc, wanted);
+            // 2) applica custom
+            applyCustom(doc);
+            // 3) osserva rerender interni
+            attachIframeObserver(doc);
+          } catch (_) {}
         }
-        if (n >= 50) clearInterval(id); // ~5s
+
+        if (n >= 40) clearInterval(id); // ~4s
       }, 100);
     }
 
-    // 🔥 FORZATURA HARD: sempre “bounce” hash -> signup
-    function openSignupHard() {
-      const target = "#/portal/signup";
-      const bounce = "#/portal"; // neutro
+    // 👇 CLICK ROUTING: decidiamo SOLO "wanted mode", poi Ghost apre, poi noi sistemiamo
+    document.addEventListener(
+      "click",
+      (e) => {
+        const el = e.target.closest?.(
+          ".gh-portal-triggerbtn-container[data-testid='portal-trigger-button'], " +
+            "a[data-portal], button[data-portal], " +
+            "a[href*='#/portal/'], a[href*='#/signin'], a[href*='#/signup']"
+        );
+        if (!el) return;
 
-      // se siamo già su signup, facciamo bounce per forzare rerender
-      if ((location.hash || "").toLowerCase() === target) {
-        location.hash = bounce;
-        setTimeout(() => { location.hash = target; }, 0);
-      } else {
-        // anche qui: prima neutro, poi target (più stabile di un solo set)
-        location.hash = bounce;
-        setTimeout(() => { location.hash = target; }, 0);
-      }
-    }
+        const dp = (el.getAttribute("data-portal") || "").toLowerCase();
+        const href = (el.getAttribute("href") || "").toLowerCase();
+        const txt = (el.textContent || "").replace(/\s+/g, " ").trim().toLowerCase();
 
-    // Intercetta SOLO trigger newsletter (incluso flottante)
-    document.addEventListener("click", (e) => {
-      const trg = e.target.closest?.(
-        ".gh-portal-triggerbtn-container[data-testid='portal-trigger-button'], " +
-        "a[data-portal='signup'], button[data-portal='signup'], " +
-        "a[href*='#/portal/signup'], a[href*='#/signup']"
-      );
-      if (!trg) return;
+        const wantsSignin =
+          dp === "signin" ||
+          href.includes("signin") ||
+          txt === "accedi";
 
-      // ✅ blocca Ghost (altrimenti al 3° click può aprire la vista “vecchia”)
-      e.preventDefault();
-      e.stopImmediatePropagation();
+        const wantsSignup =
+          dp === "signup" ||
+          href.includes("signup") ||
+          el.matches(".gh-portal-triggerbtn-container") ||
+          txt.includes("iscriviti");
 
-      openSignupHard();
-      setTimeout(runBurst, 30);
-    }, true);
+        if (wantsSignin) window.__ONL_PORTAL_WANTED_MODE__ = "signin";
+        else if (wantsSignup) window.__ONL_PORTAL_WANTED_MODE__ = "signup";
+        else window.__ONL_PORTAL_WANTED_MODE__ = "signup";
 
-    window.addEventListener("hashchange", runBurst);
-    window.addEventListener("pageshow", runBurst);
+        // lascia che Ghost faccia il suo, poi noi “aggiustiamo”
+        setTimeout(runBurst, 30);
+        setTimeout(runBurst, 200);
+      },
+      true
+    );
 
+    // extra: quando cambia hash / pageshow
+    window.addEventListener("hashchange", () => setTimeout(runBurst, 30));
+    window.addEventListener("pageshow", () => setTimeout(runBurst, 30));
+
+    // init
     runBurst();
   });
 })();
-
 
 
 
