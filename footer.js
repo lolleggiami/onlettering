@@ -2122,40 +2122,36 @@ onlOnReady(() => {
 
 
 (function () {
-  // Solo home
+  // solo home
   if (!document.body.classList.contains('home-template')) return;
 
   const text = 'Appunti su lettering, fumetti e progetto editoriale';
 
-  function insertTagline() {
+  function upsertTagline() {
     const head = document.querySelector('#gh-head, .gh-head');
     if (!head) return;
 
-    // evita doppioni
-    if (head.querySelector('.on-tagline')) return;
+    const brandWrap = head.querySelector('.gh-head-brand');
+    if (!brandWrap) return;
 
-    // prova a trovare il logo/brand dentro la testata (Edge)
-    const brand = head.querySelector(
-      '.gh-head-brand a, a.gh-head-logo, .gh-head-logo, .site-logo, a[href="/"]'
-    );
-    if (!brand) return;
-
-    const el = document.createElement('div');
-    el.className = 'on-tagline';
+    // se già esiste, aggiorna testo e fine
+    let el = brandWrap.querySelector('.on-tagline');
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'on-tagline';
+      brandWrap.appendChild(el); // <-- DENTRO il brand: così va sotto
+    }
     el.textContent = text;
-
-    brand.insertAdjacentElement('afterend', el);
   }
 
-  // Esegui al momento giusto (Portal/tema a volte montano dopo)
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', insertTagline);
+    document.addEventListener('DOMContentLoaded', upsertTagline);
   } else {
-    insertTagline();
+    upsertTagline();
   }
 
-  // Fallback: riprova una volta dopo un attimo (utile se header viene “rimpiazzato”)
-  setTimeout(insertTagline, 300);
+  // Edge/Portal a volte “rimonta” l’header: riprova un paio di volte
+  setTimeout(upsertTagline, 300);
+  setTimeout(upsertTagline, 1200);
 })();
-
 
