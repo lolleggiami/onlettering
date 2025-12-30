@@ -2120,3 +2120,37 @@ onlOnReady(() => {
   }
 })();
 
+
+<script>
+(function () {
+  const taglineText = 'Appunti su lettering, fumetti e progetto editoriale';
+
+  // prova vari selettori tipici dei temi Ghost
+  const candidates = [
+    '.gh-head-brand',
+    '.gh-head-logo',
+    '.site-logo',
+    'header a[aria-label]',
+    'header a[href="/"]'
+  ];
+
+  let brandEl = null;
+  for (const sel of candidates) {
+    const el = document.querySelector(sel);
+    if (el) { brandEl = el; break; }
+  }
+  if (!brandEl) return;
+
+  // evita doppioni
+  if (document.querySelector('.on-tagline')) return;
+
+  const tagline = document.createElement('div');
+  tagline.className = 'on-tagline';
+  tagline.textContent = taglineText;
+
+  // inserisci dopo il logo/brand
+  brandEl.insertAdjacentElement('afterend', tagline);
+})();
+</script>
+
+
