@@ -2170,28 +2170,27 @@ onlOnReady(() => {
   }
 
   function applyHomeHeaderOffset() {
-    const isMobile = window.matchMedia('(max-width: 768px)').matches;
-    const head = document.querySelector('#gh-head, .gh-head');
-    if (!head) return;
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  const head = document.querySelector('#gh-head, .gh-head');
+  if (!head) return;
 
-    // padding-top solo su mobile (header fixed)
-    document.body.style.paddingTop = isMobile ? (head.offsetHeight || 0) + 'px' : '';
+  if (!isMobile) {
+    document.body.style.paddingTop = '';
+    return;
   }
 
-  function runAll() {
-    upsertHomeDescription();
-    applyHomeHeaderOffset();
-  }
+  // misura dopo il paint (più stabile con header fixed + testo iniettato)
+  requestAnimationFrame(() => {
+    const h = head.getBoundingClientRect().height || 0;
+    document.body.style.paddingTop = Math.ceil(h) + 'px';
+  });
+}
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', runAll);
-  } else {
-    runAll();
-  }
-
-  window.addEventListener('resize', runAll);
-  setTimeout(runAll, 300);
-  setTimeout(runAll, 1200);
+// ...
+window.addEventListener('resize', runAll);
+window.addEventListener('load', runAll);   // <-- aggiungi questo
+setTimeout(runAll, 300);
+setTimeout(runAll, 1200);
 })();
 
 
