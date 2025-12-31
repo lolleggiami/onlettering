@@ -2120,7 +2120,6 @@ onlOnReady(() => {
   }
 })();
 
-<script>
 (function () {
   const TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
 
@@ -2144,10 +2143,10 @@ onlOnReady(() => {
     insertTagline();
   }
 
-  // piccolo retry (a volte Edge monta dopo)
+  // piccolo retry (Edge/stacked a volte monta dopo)
   setTimeout(insertTagline, 300);
 })();
-</script>
+
 
 
 
