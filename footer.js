@@ -2134,7 +2134,6 @@ onlOnReady(() => {
   const DESKTOP_MQ = "(min-width: 769px)";
 
   function qs(sel, root = document) { return root.querySelector(sel); }
-  function qsa(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
 
   function getHead() {
     return qs("#gh-head") || qs(".gh-head");
@@ -2145,42 +2144,33 @@ onlOnReady(() => {
   }
 
   function getActions(head) {
-    // contenitore azioni tipico
     return qs(".gh-head-actions", head) || qs(".gh-head-right", head) || head;
   }
 
   function getNavList(head) {
     const nav = qs("nav.gh-head-menu", head) || qs(".gh-head-menu", head) || qs(".gh-head-nav", head) || qs("nav", head);
-    if (!nav) return null;
-    return qs("ul", nav);
+    return nav ? qs("ul", nav) : null;
   }
 
-  function findTagDescriptionText() {
-    const el =
+  // ----- TAG PAGE DESCRIPTION (original del tema) -----
+  function findTagDescriptionNode() {
+    return (
       qs(".gh-pagehead-description") ||
       qs(".gh-archive-description") ||
       qs(".pagehead-description") ||
       qs(".tag-description") ||
-      qs(".taxonomy-description");
-    return el ? (el.textContent || "").trim() : "";
+      qs(".taxonomy-description")
+    );
   }
 
-  // =========================
-  // 1) Testo vicino al logo
-  // =========================
-  function upsertBrandSubtitle(text) {
-    const head = getHead();
-    if (!head) return;
-
-    const brand = getBrand(head);
-    if (!brand) return;
-
+  // ----- BRAND SUBTITLE (accanto al logo) -----
+  function upsertBrandSubtitle(brand, text) {
     let el = qs('[data-brand-subtitle="1"]', brand);
     if (!el) {
       el = document.createElement("span");
       el.setAttribute("data-brand-subtitle", "1");
 
-      // Inseriscilo subito dopo il link/logo se esiste, altrimenti append
+      // inserisci subito dopo il primo link del brand (di solito il logo)
       const logoLink = qs("a", brand);
       if (logoLink && logoLink.parentElement === brand) {
         logoLink.insertAdjacentElement("afterend", el);
@@ -2188,14 +2178,16 @@ onlOnReady(() => {
         brand.appendChild(el);
       }
     }
-
     el.textContent = text;
   }
 
-  // =========================
-  // 2) Sposta Search/Newsletter nel menu (SOLO DESKTOP)
-  //    e ripristina su MOBILE
-  // =========================
+  // Se esiste la vecchia tagline sotto (p[data-tagline]), rimuovila per non duplicare
+  function removeOldTaglineUnderLogo(brand) {
+    const old = qs("[data-tagline]", brand);
+    if (old) old.remove();
+  }
+
+  // ----- SEARCH + NEWSLETTER move (solo desktop) -----
   function findSearchTrigger(head) {
     return (
       qs('button[aria-label*="earch" i]', head) ||
@@ -2208,7 +2200,6 @@ onlOnReady(() => {
   }
 
   function findNewsletterTrigger(head) {
-    // cerca link/bottone iscrizione tipici
     return (
       qs('a[href*="subscribe"]', head) ||
       qs('a[href*="newsletter"]', head) ||
@@ -2228,14 +2219,10 @@ onlOnReady(() => {
     return li;
   }
 
-  function moveIntoMenuDesktop() {
-    const head = getHead();
-    if (!head) return;
-
+  function moveIntoMenuDesktop(head) {
     const ul = getNavList(head);
     if (!ul) return;
 
-    // SEARCH
     const search = findSearchTrigger(head);
     if (search) {
       const liS = ensureLi(ul, "nav-search");
@@ -2243,7 +2230,6 @@ onlOnReady(() => {
       ul.appendChild(liS);
     }
 
-    // NEWSLETTER (dopo search)
     const news = findNewsletterTrigger(head);
     if (news) {
       const liN = ensureLi(ul, "nav-newsletter");
@@ -2254,44 +2240,52 @@ onlOnReady(() => {
     }
   }
 
-  function restoreOnMobile() {
+  function restoreOnMobile(head) {
+    const ul = getNavList(head);
+    if (!ul) return;
+
+    const actions = getActions(head);
+
+    const movedSearch = qs('li[data-nav-search="1"] *', ul);
+    const movedNews   = qs('li[data-nav-newsletter="1"] *', ul);
+
+    if (movedSearch) actions.appendChild(movedSearch);
+    if (movedNews) actions.appendChild(movedNews);
+
+    const liS = qs('li[data-nav-search="1"]', ul);
+    const liN = qs('li[data-nav-newsletter="1"]', ul);
+    if (liS) liS.remove();
+    if (liN) liN.remove();
+  }
+
+  // ----- APPLY -----
+  function applyAll() {
     const head = getHead();
     if (!head) return;
 
-    const actions = getActions(head);
-    const ul = getNavList(head);
+    const brand = getBrand(head);
+    if (!brand) return;
 
-    if (ul) {
-      // rimetti eventuali elementi spostati in actions
-      const movedSearch = qs('li[data-nav-search="1"] *', ul);
-      const movedNews   = qs('li[data-nav-newsletter="1"] *', ul);
+    // 1) testo accanto al logo:
+    const isTag = document.body.classList.contains("tag-template");
+    const tagDescNode = isTag ? findTagDescriptionNode() : null;
+    const tagText = tagDescNode ? (tagDescNode.textContent || "").trim() : "";
 
-      if (movedSearch) actions.appendChild(movedSearch);
-      if (movedNews) actions.appendChild(movedNews);
+    // Usa descrizione tag se presente, altrimenti default
+    upsertBrandSubtitle(brand, (isTag && tagText) ? tagText : DEFAULT_TEXT);
 
-      // rimuovi i li vuoti creati
-      const liS = qs('li[data-nav-search="1"]', ul);
-      const liN = qs('li[data-nav-newsletter="1"]', ul);
-      if (liS) liS.remove();
-      if (liN) liN.remove();
+    // 2) elimina la vecchia tagline sotto al logo (quella di prima)
+    removeOldTaglineUnderLogo(brand);
+
+    // 3) nelle tag page nascondi la descrizione originale del tema (così “prende il posto” della tagline)
+    if (isTag && tagDescNode) {
+      tagDescNode.style.display = "none";
     }
-  }
 
-  // =========================
-  // RUN
-  // =========================
-  function applyAll() {
-    try {
-      const isTag = document.body.classList.contains("tag-template");
-      const tagText = isTag ? findTagDescriptionText() : "";
-      upsertBrandSubtitle(tagText || DEFAULT_TEXT);
-
-      const isDesktop = window.matchMedia(DESKTOP_MQ).matches;
-      if (isDesktop) moveIntoMenuDesktop();
-      else restoreOnMobile();
-    } catch (e) {
-      // non bloccare altri script
-    }
+    // 4) search/newsletter: desktop nel menu, mobile restore
+    const isDesktop = window.matchMedia(DESKTOP_MQ).matches;
+    if (isDesktop) moveIntoMenuDesktop(head);
+    else restoreOnMobile(head);
   }
 
   if (document.readyState === "loading") {
@@ -2304,6 +2298,7 @@ onlOnReady(() => {
   setTimeout(applyAll, 1200);
   window.addEventListener("resize", applyAll);
 })();
+
 
 
 
