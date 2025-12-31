@@ -2122,24 +2122,24 @@ onlOnReady(() => {
 
 
 (function () {
-  const isHome = document.body.classList.contains('home-template');
-  const isTag  = document.body.classList.contains('tag-template');
   const isPost = document.body.classList.contains('post-template');
   if (isPost) return;
 
+  const isHome = document.body.classList.contains('home-template');
+  const isTag  = document.body.classList.contains('tag-template');
+
   const homeText = 'Appunti su lettering, fumetti e progetto editoriale';
 
-  function getHeadAndBrand() {
+  function getBrandWrap() {
     const head = document.querySelector('#gh-head, .gh-head');
-    if (!head) return {};
-    const brand = head.querySelector('.gh-head-brand');
-    if (!brand) return {};
-    return { head, brand };
+    if (!head) return null;
+    return head.querySelector('.gh-head-brand') || null;
   }
 
-  function upsertHomeDescription() {
+  function upsertHomeDesc() {
     if (!isHome) return;
-    const { brand } = getHeadAndBrand();
+
+    const brand = getBrandWrap();
     if (!brand) return;
 
     let el = brand.querySelector('[data-home-desc="1"]');
@@ -2151,38 +2151,41 @@ onlOnReady(() => {
     el.textContent = homeText;
   }
 
-  function moveTagDescriptionIntoHeader() {
+  function moveTagDescIntoHeader() {
     if (!isTag) return;
-    const { brand } = getHeadAndBrand();
+
+    const brand = getBrandWrap();
     if (!brand) return;
 
-    // Trova la descrizione del tag nella pagina (di solito nel pagehead)
     const tagDesc =
-      document.querySelector('.gh-pagehead-description, .gh-archive-description, .gh-head-description, .pagehead-description');
+      document.querySelector('.gh-pagehead-description, .gh-archive-description, .pagehead-description');
 
     if (!tagDesc) return;
 
-    // Evita doppioni
-    let el = brand.querySelector('[data-tag-desc-inhead="1"]');
-    if (!el) {
-      el = document.createElement('p');
-      el.setAttribute('data-tag-desc-inhead', '1');
-      brand.appendChild(el);
-    }
+    // già spostata?
+    if (tagDesc.getAttribute('data-tag-desc-moved') === '1') return;
 
-    // Copia il testo “pulito”
-    el.textContent = tagDesc.textContent.trim();
+    // marca + sposta il nodo (non cloniamo: così mantieni stili/markup del tema)
+    tagDesc.setAttribute('data-tag-desc-moved', '1');
+    tagDesc.setAttribute('data-tag-desc-moved', '1'); // ok anche se ridondante, ma lasciamo una sola:
+    tagDesc.setAttribute('data-tag-desc-moved', '1');
 
-    // Nascondi l’originale (non lo distruggiamo)
-    tagDesc.style.display = 'none';
+    // attributo che usiamo nel CSS
+    tagDesc.setAttribute('data-tag-desc-moved', '1');
+    tagDesc.setAttribute('data-tag-desc-moved', '1');
+
+    // pulito:
+    tagDesc.setAttribute('data-tag-desc-moved', '1');
+
+    brand.appendChild(tagDesc);
   }
 
   function run() {
     try {
-      upsertHomeDescription();
-      moveTagDescriptionIntoHeader();
+      upsertHomeDesc();
+      moveTagDescIntoHeader();
     } catch (e) {
-      // non bloccare altri script del tema/portal
+      // non bloccare altri script (Portal/newsletter, micro-menu, ecc.)
     }
   }
 
@@ -2192,7 +2195,6 @@ onlOnReady(() => {
     run();
   }
 
-  // Alcuni temi rimontano parti dopo il load
   window.addEventListener('load', run);
   setTimeout(run, 300);
   setTimeout(run, 1200);
