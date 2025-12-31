@@ -2143,13 +2143,14 @@ onlOnReady(() => {
     return head.querySelector('.gh-head-brand') || null;
   }
 
-  function findTagDescriptionNode() {
+  function findThemeDescriptionNode() {
+    // La descrizione “giusta” che vedi in Autori/tag
     return document.querySelector(
       '.gh-pagehead-description, .gh-archive-description, .pagehead-description, .tag-description, .taxonomy-description'
     );
   }
 
-  function upsertHeaderDesc(text) {
+  function upsertHeaderDesc(text, classNameFromTheme) {
     const brand = getBrand();
     if (!brand) return;
 
@@ -2159,40 +2160,47 @@ onlOnReady(() => {
       el.setAttribute('data-header-desc', '1');
       brand.appendChild(el);
     }
+
+    // Usa le stesse classi del tema, così tipografia/spazi sono identici a Edge
+    el.className = classNameFromTheme || '';
     el.textContent = text;
   }
 
-  function hideOriginalTagDescription(node) {
+  function hideOriginalThemeDesc(node) {
     if (!node) return;
-    if (node.getAttribute('data-tag-desc-hidden') === '1') return;
-    node.setAttribute('data-tag-desc-hidden', '1');
+    if (node.getAttribute('data-desc-hidden') === '1') return;
+    node.setAttribute('data-desc-hidden', '1');
     node.style.display = 'none';
   }
 
   function run() {
     try {
       if (isHome) {
-        upsertHeaderDesc(HOME_TEXT);
+        // Proviamo a prendere le classi “descrizione” dal tema se esistono in pagina
+        const themeDesc = findThemeDescriptionNode();
+        upsertHeaderDesc(HOME_TEXT, themeDesc ? themeDesc.className : '');
       }
+
       if (isTag) {
-        const src = findTagDescriptionNode();
+        const src = findThemeDescriptionNode();
         const txt = src ? src.textContent.trim() : '';
         if (txt) {
-          upsertHeaderDesc(txt);
-          hideOriginalTagDescription(src);
+          upsertHeaderDesc(txt, src.className);
+          // Nascondi l'originale così non resta fuori dalla fascia sticky
+          hideOriginalThemeDesc(src);
         }
       }
     } catch (e) {
-      // non bloccare altri script
+      // non bloccare altri script (Portal/newsletter/micro-menu)
     }
   }
 
-  // Esecuzione “tranquilla”: DOM + load + 2 retry (senza osservatori)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run);
   } else {
     run();
   }
+
   window.addEventListener('load', run);
   setTimeout(run, 300);
   setTimeout(run, 1200);
