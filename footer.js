@@ -2120,6 +2120,34 @@ onlOnReady(() => {
   }
 })();
 
+<script>
+(function () {
+  const TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
+
+  function insertTagline() {
+    const brand = document.querySelector('#gh-head .gh-head-brand, .gh-head .gh-head-brand');
+    if (!brand) return;
+
+    // evita duplicati
+    if (brand.querySelector('[data-tagline]')) return;
+
+    const p = document.createElement('p');
+    p.setAttribute('data-tagline', '1');
+    p.textContent = TEXT;
+
+    brand.appendChild(p);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', insertTagline);
+  } else {
+    insertTagline();
+  }
+
+  // piccolo retry (a volte Edge monta dopo)
+  setTimeout(insertTagline, 300);
+})();
+</script>
 
 
 
