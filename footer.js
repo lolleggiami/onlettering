@@ -2191,3 +2191,59 @@ onlOnReady(() => {
 
 
 
+(function () {
+  function moveNewsletterIntoNav() {
+    const head = document.querySelector('#gh-head, .gh-head');
+    if (!head) return;
+
+    const nav = head.querySelector('nav, .gh-head-nav, .gh-head-menu');
+    if (!nav) return;
+
+    const ul = nav.querySelector('ul');
+    if (!ul) return;
+
+    // Evita doppioni
+    if (ul.querySelector('[data-nav-newsletter="1"]')) return;
+
+    // Prova a trovare un bottone/link “newsletter/subscribe” nell’header
+    const newsletterBtn =
+      head.querySelector(
+        [
+          'a[href*="newsletter"]',
+          'a[href*="subscribe"]',
+          'button[aria-label*="newsletter" i]',
+          'button[aria-label*="subscribe" i]',
+          '.gh-head-btn',
+          '.gh-btn'
+        ].join(',')
+      );
+
+    if (!newsletterBtn) return;
+
+    // Crea <li> per il menu
+    const li = document.createElement('li');
+    li.setAttribute('data-nav-newsletter', '1');
+    li.appendChild(newsletterBtn); // appendChild = sposta il nodo (non duplica)
+
+    // Inseriscilo subito dopo la lente (se presente), altrimenti in coda
+    const searchLi = ul.querySelector('[data-nav-search="1"]');
+    if (searchLi && searchLi.nextSibling) {
+      ul.insertBefore(li, searchLi.nextSibling);
+    } else if (searchLi) {
+      ul.appendChild(li);
+    } else {
+      ul.appendChild(li);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', moveNewsletterIntoNav);
+  } else {
+    moveNewsletterIntoNav();
+  }
+
+  setTimeout(moveNewsletterIntoNav, 300);
+})();
+
+
+
