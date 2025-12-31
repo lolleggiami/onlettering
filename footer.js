@@ -2120,129 +2120,166 @@ onlOnReady(() => {
   }
 })();
 
+
+
+
+
+
+
+
 (function () {
-  const TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
+  const TAGLINE_TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
+  const DESKTOP_MQ = '(min-width: 769px)';
+
+  function qs(sel, root = document) { return root.querySelector(sel); }
+
+  function getHead() {
+    return qs('#gh-head') || qs('.gh-head');
+  }
+
+  function getBrand(head) {
+    return qs('.gh-head-brand', head);
+  }
+
+  function getNavList(head) {
+    const nav = qs('nav', head) || qs('.gh-head-nav', head) || qs('.gh-head-menu', head);
+    if (!nav) return null;
+    return qs('ul', nav);
+  }
+
+  function getActions(head) {
+    // Contenitore “azioni” tipico (search/newsletter)
+    return qs('.gh-head-actions', head) || qs('.gh-head-right', head) || head;
+  }
 
   function insertTagline() {
-    const brand = document.querySelector('#gh-head .gh-head-brand, .gh-head .gh-head-brand');
+    const head = getHead();
+    if (!head) return;
+    const brand = getBrand(head);
     if (!brand) return;
 
-    // evita duplicati
-    if (brand.querySelector('[data-tagline]')) return;
+    if (qs('[data-tagline="1"]', brand)) return;
 
     const p = document.createElement('p');
     p.setAttribute('data-tagline', '1');
-    p.textContent = TEXT;
+    p.textContent = TAGLINE_TEXT;
 
     brand.appendChild(p);
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', insertTagline);
-  } else {
-    insertTagline();
+  // ---- search + newsletter nodes ----
+  function findSearchTrigger(head) {
+    return (
+      qs('button[aria-label*="earch" i]', head) ||
+      qs('a[aria-label*="earch" i]', head) ||
+      qs('.gh-search', head) ||
+      qs('.gh-head-search', head) ||
+      qs('.gh-search-toggle', head) ||
+      qs('.gh-head-search-toggle', head)
+    );
   }
 
-  // piccolo retry (Edge/stacked a volte monta dopo)
-  setTimeout(insertTagline, 300);
-})();
+  function findNewsletterTrigger(head) {
+    // Prova ad agganciare il bottone/link newsletter/subscribe senza essere troppo aggressivi
+    return (
+      qs('a[href*="newsletter"]', head) ||
+      qs('a[href*="subscribe"]', head) ||
+      qs('button[aria-label*="newsletter" i]', head) ||
+      qs('button[aria-label*="subscribe" i]', head) ||
+      qs('.gh-head-btn', head) ||
+      qs('.gh-btn', head)
+    );
+  }
 
-(function () {
-  function moveSearchIntoNav() {
-    const head = document.querySelector('#gh-head, .gh-head');
-    if (!head) return;
+  function ensureLi(ul, key) {
+    let li = qs(`li[data-${key}="1"]`, ul);
+    if (!li) {
+      li = document.createElement('li');
+      li.setAttribute(`data-${key}`, '1');
+    }
+    return li;
+  }
 
-    // Nav e lista voci
-    const nav = head.querySelector('nav, .gh-head-nav, .gh-head-menu');
-    if (!nav) return;
-
-    const ul = nav.querySelector('ul');
+  function moveIntoMenu(head) {
+    const ul = getNavList(head);
     if (!ul) return;
 
-    // Bottone/trigger search (Edge di solito ha un pulsante con aria-label “Search” o simile)
-    const searchBtn =
-      head.querySelector('button[aria-label="Search"], a[aria-label="Search"], .gh-search, .gh-head-search');
+    const search = findSearchTrigger(head);
+    const news = findNewsletterTrigger(head);
 
-    if (!searchBtn) return;
-
-    // Evita doppioni
-    if (ul.querySelector('[data-nav-search="1"]')) return;
-
-    // Crea un <li> e ci infiliamo il bottone/link
-    const li = document.createElement('li');
-    li.setAttribute('data-nav-search', '1');
-
-    // Se il searchBtn è già dentro actions, lo spostiamo (appendChild lo "muove")
-    li.appendChild(searchBtn);
-
-    // Appendi come ultima voce del menu
-    ul.appendChild(li);
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', moveSearchIntoNav);
-  } else {
-    moveSearchIntoNav();
-  }
-
-  // retry leggero (Edge a volte monta dopo)
-  setTimeout(moveSearchIntoNav, 300);
-})();
-
-
-
-(function () {
-  function moveNewsletterIntoNav() {
-    const head = document.querySelector('#gh-head, .gh-head');
-    if (!head) return;
-
-    const nav = head.querySelector('nav, .gh-head-nav, .gh-head-menu');
-    if (!nav) return;
-
-    const ul = nav.querySelector('ul');
-    if (!ul) return;
-
-    // Evita doppioni
-    if (ul.querySelector('[data-nav-newsletter="1"]')) return;
-
-    // Prova a trovare un bottone/link “newsletter/subscribe” nell’header
-    const newsletterBtn =
-      head.querySelector(
-        [
-          'a[href*="newsletter"]',
-          'a[href*="subscribe"]',
-          'button[aria-label*="newsletter" i]',
-          'button[aria-label*="subscribe" i]',
-          '.gh-head-btn',
-          '.gh-btn'
-        ].join(',')
-      );
-
-    if (!newsletterBtn) return;
-
-    // Crea <li> per il menu
-    const li = document.createElement('li');
-    li.setAttribute('data-nav-newsletter', '1');
-    li.appendChild(newsletterBtn); // appendChild = sposta il nodo (non duplica)
-
-    // Inseriscilo subito dopo la lente (se presente), altrimenti in coda
-    const searchLi = ul.querySelector('[data-nav-search="1"]');
-    if (searchLi && searchLi.nextSibling) {
-      ul.insertBefore(li, searchLi.nextSibling);
-    } else if (searchLi) {
+    // SEARCH in menu
+    if (search) {
+      // salva “casa” originale una volta sola
+      if (!search.dataset.origParentSel) search.dataset.origParentSel = '.gh-head-actions';
+      const li = ensureLi(ul, 'nav-search');
+      li.appendChild(search);
       ul.appendChild(li);
-    } else {
-      ul.appendChild(li);
+    }
+
+    // NEWSLETTER in menu (dopo search se c'è)
+    if (news) {
+      if (!news.dataset.origParentSel) news.dataset.origParentSel = '.gh-head-actions';
+      const li = ensureLi(ul, 'nav-newsletter');
+
+      // se c'è la search li, inserisci dopo; altrimenti in coda
+      const searchLi = qs('li[data-nav-search="1"]', ul);
+      if (searchLi && searchLi.nextSibling) ul.insertBefore(li, searchLi.nextSibling);
+      else ul.appendChild(li);
+
+      li.appendChild(news);
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', moveNewsletterIntoNav);
-  } else {
-    moveNewsletterIntoNav();
+  function moveBackToHeader(head) {
+    const actions = getActions(head);
+
+    // rimetti search/newsletter in actions se sono nel menu
+    const ul = getNavList(head);
+
+    const movedSearch = ul ? qs('li[data-nav-search="1"] :is(button,a,.gh-search,.gh-head-search,.gh-search-toggle,.gh-head-search-toggle)', ul) : null;
+    const movedNews = ul ? qs('li[data-nav-newsletter="1"] :is(button,a,.gh-head-btn,.gh-btn)', ul) : null;
+
+    if (movedSearch) actions.appendChild(movedSearch);
+    if (movedNews) actions.appendChild(movedNews);
+
+    // elimina le voci menu create
+    if (ul) {
+      const liS = qs('li[data-nav-search="1"]', ul);
+      const liN = qs('li[data-nav-newsletter="1"]', ul);
+      if (liS) liS.remove();
+      if (liN) liN.remove();
+    }
   }
 
-  setTimeout(moveNewsletterIntoNav, 300);
+  function applyByViewport() {
+    const head = getHead();
+    if (!head) return;
+
+    // tagline sempre (come hai ora)
+    insertTagline();
+
+    const isDesktop = window.matchMedia(DESKTOP_MQ).matches;
+
+    if (isDesktop) {
+      moveIntoMenu(head);
+    } else {
+      moveBackToHeader(head);
+    }
+  }
+
+  // Run
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', applyByViewport);
+  } else {
+    applyByViewport();
+  }
+
+  // Edge a volte monta dopo
+  setTimeout(applyByViewport, 300);
+  setTimeout(applyByViewport, 1200);
+
+  // Se ruoti/resize (mobile <-> desktop), riallinea
+  window.addEventListener('resize', applyByViewport);
 })();
 
 
