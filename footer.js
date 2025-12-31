@@ -2126,17 +2126,44 @@ onlOnReady(() => {
 
   const text = 'Appunti su lettering, fumetti e progetto editoriale';
 
-  function upsertTagline() {
+  function findDescriptionClass() {
+    // Prova le classi più comuni nei temi Ghost/Edge
+    const candidates = [
+      '.gh-head-description',
+      '.gh-pagehead-description',
+      '.gh-archive-description',
+      '.pagehead-description',
+      '.site-description'
+    ];
+
+    for (const sel of candidates) {
+      const el = document.querySelector(sel);
+      if (el) return el.className; // riusa esattamente le classi del tema
+    }
+
+    // Fallback: se non troviamo nulla, usiamo una classe neutra nostra
+    return 'gh-head-description';
+  }
+
+  const descClass = findDescriptionClass();
+
+  function upsertHomeDescription() {
     const head = document.querySelector('#gh-head, .gh-head');
     if (!head) return;
 
     const brandWrap = head.querySelector('.gh-head-brand');
     if (!brandWrap) return;
 
-    let el = brandWrap.querySelector('.on-tagline');
+    // rimuovi eventuale vecchia tagline custom, se esiste
+    const old = brandWrap.querySelector('.on-tagline');
+    if (old) old.remove();
+
+    // evita doppioni
+    let el = brandWrap.querySelector('[data-home-desc="1"]');
     if (!el) {
-      el = document.createElement('div');
-      el.className = 'on-tagline';
+      el = document.createElement('p');
+      el.setAttribute('data-home-desc', '1');
+      el.className = descClass;
       brandWrap.appendChild(el);
     }
     el.textContent = text;
@@ -2147,17 +2174,12 @@ onlOnReady(() => {
     const head = document.querySelector('#gh-head, .gh-head');
     if (!head) return;
 
-    // padding-top solo su mobile (perché lì il header è fixed)
-    if (!isMobile) {
-      document.body.style.paddingTop = '';
-      return;
-    }
-
-    document.body.style.paddingTop = (head.offsetHeight || 0) + 'px';
+    // padding-top solo su mobile (header fixed)
+    document.body.style.paddingTop = isMobile ? (head.offsetHeight || 0) + 'px' : '';
   }
 
   function runAll() {
-    upsertTagline();
+    upsertHomeDescription();
     applyHomeHeaderOffset();
   }
 
@@ -2168,8 +2190,6 @@ onlOnReady(() => {
   }
 
   window.addEventListener('resize', runAll);
-
-  // Edge/Portal può rimontare l’header dopo il load
   setTimeout(runAll, 300);
   setTimeout(runAll, 1200);
 })();
