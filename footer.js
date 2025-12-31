@@ -2179,18 +2179,10 @@ onlOnReady(() => {
     return;
   }
 
-  // misura dopo il paint (più stabile con header fixed + testo iniettato)
   requestAnimationFrame(() => {
     const h = head.getBoundingClientRect().height || 0;
-    document.body.style.paddingTop = Math.ceil(h) + 'px';
+    document.body.style.paddingTop = (Math.ceil(h) + 4) + 'px'; // +4 = cuscinetto anti-overlap
   });
 }
-
-// ...
-window.addEventListener('resize', runAll);
-window.addEventListener('load', runAll);   // <-- aggiungi questo
-setTimeout(runAll, 300);
-setTimeout(runAll, 1200);
-})();
 
 
