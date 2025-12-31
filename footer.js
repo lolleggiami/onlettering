@@ -2128,8 +2128,7 @@ onlOnReady(() => {
 
 
 (function () {
-  const TAGLINE_TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
-  const DESKTOP_MQ = '(min-width: 769px)';
+  const DEFAULT_TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
 
   function qs(sel, root = document) { return root.querySelector(sel); }
 
@@ -2138,148 +2137,60 @@ onlOnReady(() => {
   }
 
   function getBrand(head) {
-    return qs('.gh-head-brand', head);
+    return head ? qs('.gh-head-brand', head) : null;
   }
 
-  function getNavList(head) {
-    const nav = qs('nav', head) || qs('.gh-head-nav', head) || qs('.gh-head-menu', head);
-    if (!nav) return null;
-    return qs('ul', nav);
+  function findTagDescriptionText() {
+    // descrizione tipica nelle pagine tag (Edge/Ghost)
+    const el = qs('.gh-pagehead-description')
+           || qs('.gh-archive-description')
+           || qs('.pagehead-description')
+           || qs('.tag-description')
+           || qs('.taxonomy-description');
+    return el ? (el.textContent || '').trim() : '';
   }
 
-  function getActions(head) {
-    // Contenitore “azioni” tipico (search/newsletter)
-    return qs('.gh-head-actions', head) || qs('.gh-head-right', head) || head;
+  function upsertInlineText(brand, text) {
+    // evitiamo duplicati
+    let el = qs('[data-brand-subtitle="1"]', brand);
+    if (!el) {
+      el = document.createElement('span');
+      el.setAttribute('data-brand-subtitle', '1');
+      brand.appendChild(el);
+    }
+    el.textContent = text;
   }
 
-  function insertTagline() {
+  function apply() {
     const head = getHead();
     if (!head) return;
+
     const brand = getBrand(head);
     if (!brand) return;
 
-    if (qs('[data-tagline="1"]', brand)) return;
+    const isTag = document.body.classList.contains('tag-template');
+    const isPost = document.body.classList.contains('post-template');
 
-    const p = document.createElement('p');
-    p.setAttribute('data-tagline', '1');
-    p.textContent = TAGLINE_TEXT;
+    // Nei post puoi anche lasciarlo (non dà fastidio). Se preferisci NON mostrarlo nei post, decommenta:
+    // if (isPost) return;
 
-    brand.appendChild(p);
-  }
-
-  // ---- search + newsletter nodes ----
-  function findSearchTrigger(head) {
-    return (
-      qs('button[aria-label*="earch" i]', head) ||
-      qs('a[aria-label*="earch" i]', head) ||
-      qs('.gh-search', head) ||
-      qs('.gh-head-search', head) ||
-      qs('.gh-search-toggle', head) ||
-      qs('.gh-head-search-toggle', head)
-    );
-  }
-
-  function findNewsletterTrigger(head) {
-    // Prova ad agganciare il bottone/link newsletter/subscribe senza essere troppo aggressivi
-    return (
-      qs('a[href*="newsletter"]', head) ||
-      qs('a[href*="subscribe"]', head) ||
-      qs('button[aria-label*="newsletter" i]', head) ||
-      qs('button[aria-label*="subscribe" i]', head) ||
-      qs('.gh-head-btn', head) ||
-      qs('.gh-btn', head)
-    );
-  }
-
-  function ensureLi(ul, key) {
-    let li = qs(`li[data-${key}="1"]`, ul);
-    if (!li) {
-      li = document.createElement('li');
-      li.setAttribute(`data-${key}`, '1');
-    }
-    return li;
-  }
-
-  function moveIntoMenu(head) {
-    const ul = getNavList(head);
-    if (!ul) return;
-
-    const search = findSearchTrigger(head);
-    const news = findNewsletterTrigger(head);
-
-    // SEARCH in menu
-    if (search) {
-      // salva “casa” originale una volta sola
-      if (!search.dataset.origParentSel) search.dataset.origParentSel = '.gh-head-actions';
-      const li = ensureLi(ul, 'nav-search');
-      li.appendChild(search);
-      ul.appendChild(li);
-    }
-
-    // NEWSLETTER in menu (dopo search se c'è)
-    if (news) {
-      if (!news.dataset.origParentSel) news.dataset.origParentSel = '.gh-head-actions';
-      const li = ensureLi(ul, 'nav-newsletter');
-
-      // se c'è la search li, inserisci dopo; altrimenti in coda
-      const searchLi = qs('li[data-nav-search="1"]', ul);
-      if (searchLi && searchLi.nextSibling) ul.insertBefore(li, searchLi.nextSibling);
-      else ul.appendChild(li);
-
-      li.appendChild(news);
-    }
-  }
-
-  function moveBackToHeader(head) {
-    const actions = getActions(head);
-
-    // rimetti search/newsletter in actions se sono nel menu
-    const ul = getNavList(head);
-
-    const movedSearch = ul ? qs('li[data-nav-search="1"] :is(button,a,.gh-search,.gh-head-search,.gh-search-toggle,.gh-head-search-toggle)', ul) : null;
-    const movedNews = ul ? qs('li[data-nav-newsletter="1"] :is(button,a,.gh-head-btn,.gh-btn)', ul) : null;
-
-    if (movedSearch) actions.appendChild(movedSearch);
-    if (movedNews) actions.appendChild(movedNews);
-
-    // elimina le voci menu create
-    if (ul) {
-      const liS = qs('li[data-nav-search="1"]', ul);
-      const liN = qs('li[data-nav-newsletter="1"]', ul);
-      if (liS) liS.remove();
-      if (liN) liN.remove();
-    }
-  }
-
-  function applyByViewport() {
-    const head = getHead();
-    if (!head) return;
-
-    // tagline sempre (come hai ora)
-    insertTagline();
-
-    const isDesktop = window.matchMedia(DESKTOP_MQ).matches;
-
-    if (isDesktop) {
-      moveIntoMenu(head);
+    if (isTag) {
+      const tagText = findTagDescriptionText();
+      upsertInlineText(brand, tagText || DEFAULT_TEXT);
     } else {
-      moveBackToHeader(head);
+      upsertInlineText(brand, DEFAULT_TEXT);
     }
   }
 
-  // Run
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyByViewport);
+    document.addEventListener('DOMContentLoaded', apply);
   } else {
-    applyByViewport();
+    apply();
   }
 
-  // Edge a volte monta dopo
-  setTimeout(applyByViewport, 300);
-  setTimeout(applyByViewport, 1200);
-
-  // Se ruoti/resize (mobile <-> desktop), riallinea
-  window.addEventListener('resize', applyByViewport);
+  // retry leggero (Edge a volte monta dopo)
+  setTimeout(apply, 300);
+  setTimeout(apply, 1200);
 })();
 
 
