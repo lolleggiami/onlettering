@@ -2128,12 +2128,10 @@ onlOnReady(() => {
 
 
 (function () {
-  const isPost = document.body.classList.contains('post-template');
-  if (isPost) return;
-
   const isHome = document.body.classList.contains('home-template');
   const isTag  = document.body.classList.contains('tag-template');
-  if (!isHome && !isTag) return;
+  const isPost = document.body.classList.contains('post-template');
+  if (isPost) return;
 
   const HOME_TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
 
@@ -2143,55 +2141,58 @@ onlOnReady(() => {
     return head.querySelector('.gh-head-brand') || null;
   }
 
-  function findThemeDescriptionNode() {
-    // La descrizione “giusta” che vedi in Autori/tag
+  // “Descrizione tag” del tema (quella che vedi nelle tag page)
+  function findThemeTagDescription() {
     return document.querySelector(
-      '.gh-pagehead-description, .gh-archive-description, .pagehead-description, .tag-description, .taxonomy-description'
+      '.gh-pagehead-description, .gh-archive-description, .pagehead-description'
     );
   }
 
-  function upsertHeaderDesc(text, classNameFromTheme) {
+  function upsertTagline(text, className) {
     const brand = getBrand();
     if (!brand) return;
 
-    let el = brand.querySelector('[data-header-desc="1"]');
+    let el = brand.querySelector('[data-site-tagline="1"]');
     if (!el) {
       el = document.createElement('p');
-      el.setAttribute('data-header-desc', '1');
+      el.setAttribute('data-site-tagline', '1');
       brand.appendChild(el);
     }
 
-    // Usa le stesse classi del tema, così tipografia/spazi sono identici a Edge
-    el.className = classNameFromTheme || '';
+    // Applica lo STESSO stile della descrizione tag (classe del tema)
+    // Se non esiste (es. home), fallback a una classe tipica
+    el.className = className || 'gh-pagehead-description';
     el.textContent = text;
   }
 
-  function hideOriginalThemeDesc(node) {
+  function hideOriginalTagDesc(node) {
     if (!node) return;
-    if (node.getAttribute('data-desc-hidden') === '1') return;
-    node.setAttribute('data-desc-hidden', '1');
+    if (node.getAttribute('data-hidden-by-on') === '1') return;
+    node.setAttribute('data-hidden-by-on', '1');
     node.style.display = 'none';
   }
 
   function run() {
     try {
+      const themeDesc = findThemeTagDescription();
+
       if (isHome) {
-        // Proviamo a prendere le classi “descrizione” dal tema se esistono in pagina
-        const themeDesc = findThemeDescriptionNode();
-        upsertHeaderDesc(HOME_TEXT, themeDesc ? themeDesc.className : '');
+        // In home: mostra la tagline
+        upsertTagline(HOME_TEXT, themeDesc ? themeDesc.className : '');
       }
 
       if (isTag) {
-        const src = findThemeDescriptionNode();
-        const txt = src ? src.textContent.trim() : '';
-        if (txt) {
-          upsertHeaderDesc(txt, src.className);
-          // Nascondi l'originale così non resta fuori dalla fascia sticky
-          hideOriginalThemeDesc(src);
+        // In tag page: la descrizione del tag prende il posto della tagline
+        if (themeDesc) {
+          const txt = themeDesc.textContent.trim();
+          if (txt) {
+            upsertTagline(txt, themeDesc.className);
+            hideOriginalTagDesc(themeDesc); // evita duplicato fuori dall’header
+          }
         }
       }
     } catch (e) {
-      // non bloccare altri script (Portal/newsletter/micro-menu)
+      // non bloccare altri script del tema/portal
     }
   }
 
@@ -2205,4 +2206,5 @@ onlOnReady(() => {
   setTimeout(run, 300);
   setTimeout(run, 1200);
 })();
+
 
