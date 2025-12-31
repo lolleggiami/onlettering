@@ -2147,6 +2147,47 @@ onlOnReady(() => {
   setTimeout(insertTagline, 300);
 })();
 
+(function () {
+  function moveSearchIntoNav() {
+    const head = document.querySelector('#gh-head, .gh-head');
+    if (!head) return;
+
+    // Nav e lista voci
+    const nav = head.querySelector('nav, .gh-head-nav, .gh-head-menu');
+    if (!nav) return;
+
+    const ul = nav.querySelector('ul');
+    if (!ul) return;
+
+    // Bottone/trigger search (Edge di solito ha un pulsante con aria-label “Search” o simile)
+    const searchBtn =
+      head.querySelector('button[aria-label="Search"], a[aria-label="Search"], .gh-search, .gh-head-search');
+
+    if (!searchBtn) return;
+
+    // Evita doppioni
+    if (ul.querySelector('[data-nav-search="1"]')) return;
+
+    // Crea un <li> e ci infiliamo il bottone/link
+    const li = document.createElement('li');
+    li.setAttribute('data-nav-search', '1');
+
+    // Se il searchBtn è già dentro actions, lo spostiamo (appendChild lo "muove")
+    li.appendChild(searchBtn);
+
+    // Appendi come ultima voce del menu
+    ul.appendChild(li);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', moveSearchIntoNav);
+  } else {
+    moveSearchIntoNav();
+  }
+
+  // retry leggero (Edge a volte monta dopo)
+  setTimeout(moveSearchIntoNav, 300);
+})();
 
 
 
