@@ -2122,3 +2122,79 @@ onlOnReady(() => {
 
 
 
+
+(function () {
+  "use strict";
+
+  // Non fare nulla nei post
+  if (document.body.classList.contains("post-template")) return;
+
+  const isHome = document.body.classList.contains("home-template");
+  const isTag  = document.body.classList.contains("tag-template");
+  if (!isHome && !isTag) return;
+
+  const HOME_TEXT = "Appunti su lettering, fumetti e progetto editoriale";
+
+  function getBrandWrap() {
+    const head = document.querySelector("#gh-head, .gh-head");
+    if (!head) return null;
+    return head.querySelector(".gh-head-brand");
+  }
+
+  function findTagDescriptionText() {
+    // Prendiamo SOLO il testo, senza toccare il nodo
+    const el = document.querySelector(
+      ".gh-pagehead-description, .gh-archive-description, .pagehead-description"
+    );
+    if (!el) return "";
+    const txt = (el.textContent || "").trim();
+    return txt;
+  }
+
+  function upsertHeaderLine(text) {
+    const brand = getBrandWrap();
+    if (!brand) return;
+
+    let p = brand.querySelector('[data-online="1"]');
+    if (!p) {
+      p = document.createElement("p");
+      p.setAttribute("data-online", "1");
+      // Non usiamo classi del tema: evitiamo conflitti
+      // Stile minimo inline per non dipendere dal CSS (poi lo rifiniamo via CSS)
+      p.style.margin = "0.25rem 0 0 0";
+      p.style.opacity = "0.8";
+      p.style.fontSize = "0.9em";
+      p.style.lineHeight = "1.2";
+      brand.appendChild(p);
+    }
+
+    p.textContent = text;
+  }
+
+  function run() {
+    try {
+      if (isHome) {
+        upsertHeaderLine(HOME_TEXT);
+        return;
+      }
+
+      if (isTag) {
+        const txt = findTagDescriptionText();
+        if (txt) upsertHeaderLine(txt);
+      }
+    } catch (e) {
+      // Non far crashare nulla del tema
+      // (se vuoi debug: console.error(e); )
+    }
+  }
+
+  // Esegui quando DOM pronto + un retry leggero (Edge a volte monta dopo)
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", run);
+  } else {
+    run();
+  }
+  setTimeout(run, 300);
+})();
+
+
