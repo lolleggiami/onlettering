@@ -2121,82 +2121,95 @@ onlOnReady(() => {
 })();
 
 
+
+
+
+
+
+
 (function () {
   const isPost = document.body.classList.contains('post-template');
   if (isPost) return;
 
   const isHome = document.body.classList.contains('home-template');
   const isTag  = document.body.classList.contains('tag-template');
+  if (!isHome && !isTag) return;
 
-  const homeText = 'Appunti su lettering, fumetti e progetto editoriale';
+  const HOME_TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
 
-  function getBrandWrap() {
+  function getBrand() {
     const head = document.querySelector('#gh-head, .gh-head');
     if (!head) return null;
     return head.querySelector('.gh-head-brand') || null;
   }
 
-  function upsertHomeDesc() {
-    if (!isHome) return;
-
-    const brand = getBrandWrap();
-    if (!brand) return;
-
-    let el = brand.querySelector('[data-home-desc="1"]');
-    if (!el) {
-      el = document.createElement('p');
-      el.setAttribute('data-home-desc', '1');
-      brand.appendChild(el);
-    }
-    el.textContent = homeText;
+  // Trova la descrizione del tag “ovunque” (Edge può variarla)
+  function findTagDescriptionNode() {
+    return document.querySelector(
+      [
+        '.gh-pagehead-description',
+        '.gh-archive-description',
+        '.pagehead-description',
+        '.tag-description',
+        '.taxonomy-description',
+        '.gh-head-description' // fallback
+      ].join(',')
+    );
   }
 
-  function moveTagDescIntoHeader() {
-    if (!isTag) return;
+  // Nasconde l'originale senza rimuoverlo (non rompe layout/script)
+  function hideOriginalTagDescription(node) {
+    if (!node) return;
+    node.setAttribute('data-tag-desc-hidden-by-script', '1');
+    node.style.display = 'none';
+  }
 
-    const brand = getBrandWrap();
+  function upsertHeaderDesc(text) {
+    const brand = getBrand();
     if (!brand) return;
 
-    const tagDesc =
-      document.querySelector('.gh-pagehead-description, .gh-archive-description, .pagehead-description');
-
-    if (!tagDesc) return;
-
-    // già spostata?
-    if (tagDesc.getAttribute('data-tag-desc-moved') === '1') return;
-
-    // marca + sposta il nodo (non cloniamo: così mantieni stili/markup del tema)
-    tagDesc.setAttribute('data-tag-desc-moved', '1');
-    tagDesc.setAttribute('data-tag-desc-moved', '1'); // ok anche se ridondante, ma lasciamo una sola:
-    tagDesc.setAttribute('data-tag-desc-moved', '1');
-
-    // attributo che usiamo nel CSS
-    tagDesc.setAttribute('data-tag-desc-moved', '1');
-    tagDesc.setAttribute('data-tag-desc-moved', '1');
-
-    // pulito:
-    tagDesc.setAttribute('data-tag-desc-moved', '1');
-
-    brand.appendChild(tagDesc);
+    let el = brand.querySelector('[data-header-desc="1"]');
+    if (!el) {
+      el = document.createElement('p');
+      el.setAttribute('data-header-desc', '1');
+      brand.appendChild(el);
+    }
+    el.textContent = text;
   }
 
   function run() {
     try {
-      upsertHomeDesc();
-      moveTagDescIntoHeader();
+      if (isHome) {
+        upsertHeaderDesc(HOME_TEXT);
+      }
+
+      if (isTag) {
+        const src = findTagDescriptionNode();
+        const txt = src ? src.textContent.trim() : '';
+        if (txt) {
+          upsertHeaderDesc(txt);
+          hideOriginalTagDescription(src); // così la “descrizione tag” resta dentro la fascia sticky (la nostra)
+        }
+      }
     } catch (e) {
-      // non bloccare altri script (Portal/newsletter, micro-menu, ecc.)
+      // non bloccare altri script (Portal/newsletter/micro-menu)
     }
   }
 
+  // Esegui quando DOM pronto + quando tutto caricato + retry (Edge può montare dopo)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run);
   } else {
     run();
   }
-
   window.addEventListener('load', run);
   setTimeout(run, 300);
   setTimeout(run, 1200);
+
+  // Se la pagina cambia contenuti dopo (lazy/portal), osserva il DOM e riprova (leggero)
+  const obs = new MutationObserver(() => run());
+  obs.observe(document.documentElement, { childList: true, subtree: true });
+  setTimeout(() => obs.disconnect(), 5000); // si auto-spegne dopo 5s
 })();
+
 
