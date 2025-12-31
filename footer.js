@@ -2122,30 +2122,10 @@ onlOnReady(() => {
 
 
 (function () {
+  // Solo HOME: qui inseriamo la descrizione generale
   if (!document.body.classList.contains('home-template')) return;
 
   const text = 'Appunti su lettering, fumetti e progetto editoriale';
-
-  function findDescriptionClass() {
-    // Prova le classi più comuni nei temi Ghost/Edge
-    const candidates = [
-      '.gh-head-description',
-      '.gh-pagehead-description',
-      '.gh-archive-description',
-      '.pagehead-description',
-      '.site-description'
-    ];
-
-    for (const sel of candidates) {
-      const el = document.querySelector(sel);
-      if (el) return el.className; // riusa esattamente le classi del tema
-    }
-
-    // Fallback: se non troviamo nulla, usiamo una classe neutra nostra
-    return 'gh-head-description';
-  }
-
-  const descClass = findDescriptionClass();
 
   function upsertHomeDescription() {
     const head = document.querySelector('#gh-head, .gh-head');
@@ -2154,35 +2134,38 @@ onlOnReady(() => {
     const brandWrap = head.querySelector('.gh-head-brand');
     if (!brandWrap) return;
 
-    // rimuovi eventuale vecchia tagline custom, se esiste
-    const old = brandWrap.querySelector('.on-tagline');
-    if (old) old.remove();
-
-    // evita doppioni
+    // Evita doppioni
     let el = brandWrap.querySelector('[data-home-desc="1"]');
     if (!el) {
       el = document.createElement('p');
       el.setAttribute('data-home-desc', '1');
-      el.className = descClass;
+
+      // Proviamo a riusare la classe descrizione del tema, se esiste
+      const themeDesc = document.querySelector(
+        '.gh-head-description, .gh-pagehead-description, .gh-archive-description, .pagehead-description, .site-description'
+      );
+      el.className = themeDesc ? themeDesc.className : 'gh-head-description';
+
       brandWrap.appendChild(el);
     }
+
     el.textContent = text;
   }
 
-  function applyHomeHeaderOffset() {
-  const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  const head = document.querySelector('#gh-head, .gh-head');
-  if (!head) return;
-
-  if (!isMobile) {
-    document.body.style.paddingTop = '';
-    return;
+  function run() {
+    try { upsertHomeDescription(); } catch (e) { /* non bloccare altri script */ }
   }
 
-  requestAnimationFrame(() => {
-    const h = head.getBoundingClientRect().height || 0;
-    document.body.style.paddingTop = (Math.ceil(h) + 4) + 'px'; // +4 = cuscinetto anti-overlap
-  });
-}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
+
+  // Se il tema/portal rimonta l’header
+  setTimeout(run, 300);
+  setTimeout(run, 1200);
+})();
+
 
 
