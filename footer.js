@@ -2128,70 +2128,183 @@ onlOnReady(() => {
 
 
 (function () {
-  const DEFAULT_TEXT = 'Appunti su lettering, fumetti e progetto editoriale';
+  "use strict";
+
+  const DEFAULT_TEXT = "Appunti su lettering, fumetti e progetto editoriale";
+  const DESKTOP_MQ = "(min-width: 769px)";
 
   function qs(sel, root = document) { return root.querySelector(sel); }
+  function qsa(sel, root = document) { return Array.from(root.querySelectorAll(sel)); }
 
   function getHead() {
-    return qs('#gh-head') || qs('.gh-head');
+    return qs("#gh-head") || qs(".gh-head");
   }
 
   function getBrand(head) {
-    return head ? qs('.gh-head-brand', head) : null;
+    return head ? qs(".gh-head-brand", head) : null;
+  }
+
+  function getActions(head) {
+    // contenitore azioni tipico
+    return qs(".gh-head-actions", head) || qs(".gh-head-right", head) || head;
+  }
+
+  function getNavList(head) {
+    const nav = qs("nav.gh-head-menu", head) || qs(".gh-head-menu", head) || qs(".gh-head-nav", head) || qs("nav", head);
+    if (!nav) return null;
+    return qs("ul", nav);
   }
 
   function findTagDescriptionText() {
-    // descrizione tipica nelle pagine tag (Edge/Ghost)
-    const el = qs('.gh-pagehead-description')
-           || qs('.gh-archive-description')
-           || qs('.pagehead-description')
-           || qs('.tag-description')
-           || qs('.taxonomy-description');
-    return el ? (el.textContent || '').trim() : '';
+    const el =
+      qs(".gh-pagehead-description") ||
+      qs(".gh-archive-description") ||
+      qs(".pagehead-description") ||
+      qs(".tag-description") ||
+      qs(".taxonomy-description");
+    return el ? (el.textContent || "").trim() : "";
   }
 
-  function upsertInlineText(brand, text) {
-    // evitiamo duplicati
-    let el = qs('[data-brand-subtitle="1"]', brand);
-    if (!el) {
-      el = document.createElement('span');
-      el.setAttribute('data-brand-subtitle', '1');
-      brand.appendChild(el);
-    }
-    el.textContent = text;
-  }
-
-  function apply() {
+  // =========================
+  // 1) Testo vicino al logo
+  // =========================
+  function upsertBrandSubtitle(text) {
     const head = getHead();
     if (!head) return;
 
     const brand = getBrand(head);
     if (!brand) return;
 
-    const isTag = document.body.classList.contains('tag-template');
-    const isPost = document.body.classList.contains('post-template');
+    let el = qs('[data-brand-subtitle="1"]', brand);
+    if (!el) {
+      el = document.createElement("span");
+      el.setAttribute("data-brand-subtitle", "1");
 
-    // Nei post puoi anche lasciarlo (non dà fastidio). Se preferisci NON mostrarlo nei post, decommenta:
-    // if (isPost) return;
+      // Inseriscilo subito dopo il link/logo se esiste, altrimenti append
+      const logoLink = qs("a", brand);
+      if (logoLink && logoLink.parentElement === brand) {
+        logoLink.insertAdjacentElement("afterend", el);
+      } else {
+        brand.appendChild(el);
+      }
+    }
 
-    if (isTag) {
-      const tagText = findTagDescriptionText();
-      upsertInlineText(brand, tagText || DEFAULT_TEXT);
-    } else {
-      upsertInlineText(brand, DEFAULT_TEXT);
+    el.textContent = text;
+  }
+
+  // =========================
+  // 2) Sposta Search/Newsletter nel menu (SOLO DESKTOP)
+  //    e ripristina su MOBILE
+  // =========================
+  function findSearchTrigger(head) {
+    return (
+      qs('button[aria-label*="earch" i]', head) ||
+      qs('a[aria-label*="earch" i]', head) ||
+      qs(".gh-search", head) ||
+      qs(".gh-head-search", head) ||
+      qs(".gh-search-toggle", head) ||
+      qs(".gh-head-search-toggle", head)
+    );
+  }
+
+  function findNewsletterTrigger(head) {
+    // cerca link/bottone iscrizione tipici
+    return (
+      qs('a[href*="subscribe"]', head) ||
+      qs('a[href*="newsletter"]', head) ||
+      qs('button[aria-label*="subscribe" i]', head) ||
+      qs('button[aria-label*="newsletter" i]', head) ||
+      qs(".gh-head-btn", head) ||
+      qs(".gh-btn", head)
+    );
+  }
+
+  function ensureLi(ul, key) {
+    let li = qs(`li[data-${key}="1"]`, ul);
+    if (!li) {
+      li = document.createElement("li");
+      li.setAttribute(`data-${key}`, "1");
+    }
+    return li;
+  }
+
+  function moveIntoMenuDesktop() {
+    const head = getHead();
+    if (!head) return;
+
+    const ul = getNavList(head);
+    if (!ul) return;
+
+    // SEARCH
+    const search = findSearchTrigger(head);
+    if (search) {
+      const liS = ensureLi(ul, "nav-search");
+      liS.appendChild(search);
+      ul.appendChild(liS);
+    }
+
+    // NEWSLETTER (dopo search)
+    const news = findNewsletterTrigger(head);
+    if (news) {
+      const liN = ensureLi(ul, "nav-newsletter");
+      const searchLi = qs('li[data-nav-search="1"]', ul);
+      if (searchLi && searchLi.nextSibling) ul.insertBefore(liN, searchLi.nextSibling);
+      else ul.appendChild(liN);
+      liN.appendChild(news);
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', apply);
-  } else {
-    apply();
+  function restoreOnMobile() {
+    const head = getHead();
+    if (!head) return;
+
+    const actions = getActions(head);
+    const ul = getNavList(head);
+
+    if (ul) {
+      // rimetti eventuali elementi spostati in actions
+      const movedSearch = qs('li[data-nav-search="1"] *', ul);
+      const movedNews   = qs('li[data-nav-newsletter="1"] *', ul);
+
+      if (movedSearch) actions.appendChild(movedSearch);
+      if (movedNews) actions.appendChild(movedNews);
+
+      // rimuovi i li vuoti creati
+      const liS = qs('li[data-nav-search="1"]', ul);
+      const liN = qs('li[data-nav-newsletter="1"]', ul);
+      if (liS) liS.remove();
+      if (liN) liN.remove();
+    }
   }
 
-  // retry leggero (Edge a volte monta dopo)
-  setTimeout(apply, 300);
-  setTimeout(apply, 1200);
+  // =========================
+  // RUN
+  // =========================
+  function applyAll() {
+    try {
+      const isTag = document.body.classList.contains("tag-template");
+      const tagText = isTag ? findTagDescriptionText() : "";
+      upsertBrandSubtitle(tagText || DEFAULT_TEXT);
+
+      const isDesktop = window.matchMedia(DESKTOP_MQ).matches;
+      if (isDesktop) moveIntoMenuDesktop();
+      else restoreOnMobile();
+    } catch (e) {
+      // non bloccare altri script
+    }
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", applyAll);
+  } else {
+    applyAll();
+  }
+
+  setTimeout(applyAll, 300);
+  setTimeout(applyAll, 1200);
+  window.addEventListener("resize", applyAll);
 })();
+
 
 
 
