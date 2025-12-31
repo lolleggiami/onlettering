@@ -2122,38 +2122,68 @@ onlOnReady(() => {
 
 
 (function () {
-  // Solo HOME: qui inseriamo la descrizione generale
-  if (!document.body.classList.contains('home-template')) return;
+  const isHome = document.body.classList.contains('home-template');
+  const isTag  = document.body.classList.contains('tag-template');
+  const isPost = document.body.classList.contains('post-template');
+  if (isPost) return;
 
-  const text = 'Appunti su lettering, fumetti e progetto editoriale';
+  const homeText = 'Appunti su lettering, fumetti e progetto editoriale';
+
+  function getHeadAndBrand() {
+    const head = document.querySelector('#gh-head, .gh-head');
+    if (!head) return {};
+    const brand = head.querySelector('.gh-head-brand');
+    if (!brand) return {};
+    return { head, brand };
+  }
 
   function upsertHomeDescription() {
-    const head = document.querySelector('#gh-head, .gh-head');
-    if (!head) return;
+    if (!isHome) return;
+    const { brand } = getHeadAndBrand();
+    if (!brand) return;
 
-    const brandWrap = head.querySelector('.gh-head-brand');
-    if (!brandWrap) return;
-
-    // Evita doppioni
-    let el = brandWrap.querySelector('[data-home-desc="1"]');
+    let el = brand.querySelector('[data-home-desc="1"]');
     if (!el) {
       el = document.createElement('p');
       el.setAttribute('data-home-desc', '1');
+      brand.appendChild(el);
+    }
+    el.textContent = homeText;
+  }
 
-      // Proviamo a riusare la classe descrizione del tema, se esiste
-      const themeDesc = document.querySelector(
-        '.gh-head-description, .gh-pagehead-description, .gh-archive-description, .pagehead-description, .site-description'
-      );
-      el.className = themeDesc ? themeDesc.className : 'gh-head-description';
+  function moveTagDescriptionIntoHeader() {
+    if (!isTag) return;
+    const { brand } = getHeadAndBrand();
+    if (!brand) return;
 
-      brandWrap.appendChild(el);
+    // Trova la descrizione del tag nella pagina (di solito nel pagehead)
+    const tagDesc =
+      document.querySelector('.gh-pagehead-description, .gh-archive-description, .gh-head-description, .pagehead-description');
+
+    if (!tagDesc) return;
+
+    // Evita doppioni
+    let el = brand.querySelector('[data-tag-desc-inhead="1"]');
+    if (!el) {
+      el = document.createElement('p');
+      el.setAttribute('data-tag-desc-inhead', '1');
+      brand.appendChild(el);
     }
 
-    el.textContent = text;
+    // Copia il testo “pulito”
+    el.textContent = tagDesc.textContent.trim();
+
+    // Nascondi l’originale (non lo distruggiamo)
+    tagDesc.style.display = 'none';
   }
 
   function run() {
-    try { upsertHomeDescription(); } catch (e) { /* non bloccare altri script */ }
+    try {
+      upsertHomeDescription();
+      moveTagDescriptionIntoHeader();
+    } catch (e) {
+      // non bloccare altri script del tema/portal
+    }
   }
 
   if (document.readyState === 'loading') {
@@ -2162,10 +2192,9 @@ onlOnReady(() => {
     run();
   }
 
-  // Se il tema/portal rimonta l’header
+  // Alcuni temi rimontano parti dopo il load
+  window.addEventListener('load', run);
   setTimeout(run, 300);
   setTimeout(run, 1200);
 })();
-
-
 
