@@ -2122,7 +2122,6 @@ onlOnReady(() => {
 
 
 (function () {
-  // solo home
   if (!document.body.classList.contains('home-template')) return;
 
   const text = 'Appunti su lettering, fumetti e progetto editoriale';
@@ -2134,64 +2133,45 @@ onlOnReady(() => {
     const brandWrap = head.querySelector('.gh-head-brand');
     if (!brandWrap) return;
 
-    // se già esiste, aggiorna testo e fine
     let el = brandWrap.querySelector('.on-tagline');
     if (!el) {
       el = document.createElement('div');
       el.className = 'on-tagline';
-      brandWrap.appendChild(el); // <-- DENTRO il brand: così va sotto
+      brandWrap.appendChild(el);
     }
     el.textContent = text;
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', upsertTagline);
-  } else {
-    upsertTagline();
-  }
-
-  // Edge/Portal a volte “rimonta” l’header: riprova un paio di volte
-  setTimeout(upsertTagline, 300);
-  setTimeout(upsertTagline, 1200);
-})();
-
-
-(function () {
-  if (!document.body.classList.contains('home-template')) return;
-
   function applyHomeHeaderOffset() {
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
     const head = document.querySelector('#gh-head, .gh-head');
     if (!head) return;
-    const h = head.offsetHeight || 0;
-    document.body.style.paddingTop = h + 'px';
+
+    // padding-top solo su mobile (perché lì il header è fixed)
+    if (!isMobile) {
+      document.body.style.paddingTop = '';
+      return;
+    }
+
+    document.body.style.paddingTop = (head.offsetHeight || 0) + 'px';
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyHomeHeaderOffset);
-  } else {
+  function runAll() {
+    upsertTagline();
     applyHomeHeaderOffset();
   }
 
-  window.addEventListener('resize', applyHomeHeaderOffset);
-  setTimeout(applyHomeHeaderOffset, 300);
-  setTimeout(applyHomeHeaderOffset, 1200);
-})();
-
-
-
-function applyHomeHeaderOffset() {
-  if (!document.body.classList.contains('home-template')) return;
-
-  const isMobile = window.matchMedia('(max-width: 768px)').matches;
-  const head = document.querySelector('#gh-head, .gh-head');
-  if (!head) return;
-
-  if (!isMobile) {
-    document.body.style.paddingTop = ''; // pulisci su desktop
-    return;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runAll);
+  } else {
+    runAll();
   }
 
-  const h = head.offsetHeight || 0;
-  document.body.style.paddingTop = h + 'px';
-}
+  window.addEventListener('resize', runAll);
+
+  // Edge/Portal può rimontare l’header dopo il load
+  setTimeout(runAll, 300);
+  setTimeout(runAll, 1200);
+})();
+
 
