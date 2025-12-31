@@ -2177,3 +2177,21 @@ onlOnReady(() => {
   setTimeout(applyHomeHeaderOffset, 1200);
 })();
 
+
+
+function applyHomeHeaderOffset() {
+  if (!document.body.classList.contains('home-template')) return;
+
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  const head = document.querySelector('#gh-head, .gh-head');
+  if (!head) return;
+
+  if (!isMobile) {
+    document.body.style.paddingTop = ''; // pulisci su desktop
+    return;
+  }
+
+  const h = head.offsetHeight || 0;
+  document.body.style.paddingTop = h + 'px';
+}
+
