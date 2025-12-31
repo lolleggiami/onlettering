@@ -2143,25 +2143,10 @@ onlOnReady(() => {
     return head.querySelector('.gh-head-brand') || null;
   }
 
-  // Trova la descrizione del tag “ovunque” (Edge può variarla)
   function findTagDescriptionNode() {
     return document.querySelector(
-      [
-        '.gh-pagehead-description',
-        '.gh-archive-description',
-        '.pagehead-description',
-        '.tag-description',
-        '.taxonomy-description',
-        '.gh-head-description' // fallback
-      ].join(',')
+      '.gh-pagehead-description, .gh-archive-description, .pagehead-description, .tag-description, .taxonomy-description'
     );
-  }
-
-  // Nasconde l'originale senza rimuoverlo (non rompe layout/script)
-  function hideOriginalTagDescription(node) {
-    if (!node) return;
-    node.setAttribute('data-tag-desc-hidden-by-script', '1');
-    node.style.display = 'none';
   }
 
   function upsertHeaderDesc(text) {
@@ -2177,26 +2162,32 @@ onlOnReady(() => {
     el.textContent = text;
   }
 
+  function hideOriginalTagDescription(node) {
+    if (!node) return;
+    if (node.getAttribute('data-tag-desc-hidden') === '1') return;
+    node.setAttribute('data-tag-desc-hidden', '1');
+    node.style.display = 'none';
+  }
+
   function run() {
     try {
       if (isHome) {
         upsertHeaderDesc(HOME_TEXT);
       }
-
       if (isTag) {
         const src = findTagDescriptionNode();
         const txt = src ? src.textContent.trim() : '';
         if (txt) {
           upsertHeaderDesc(txt);
-          hideOriginalTagDescription(src); // così la “descrizione tag” resta dentro la fascia sticky (la nostra)
+          hideOriginalTagDescription(src);
         }
       }
     } catch (e) {
-      // non bloccare altri script (Portal/newsletter/micro-menu)
+      // non bloccare altri script
     }
   }
 
-  // Esegui quando DOM pronto + quando tutto caricato + retry (Edge può montare dopo)
+  // Esecuzione “tranquilla”: DOM + load + 2 retry (senza osservatori)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', run);
   } else {
@@ -2205,11 +2196,5 @@ onlOnReady(() => {
   window.addEventListener('load', run);
   setTimeout(run, 300);
   setTimeout(run, 1200);
-
-  // Se la pagina cambia contenuti dopo (lazy/portal), osserva il DOM e riprova (leggero)
-  const obs = new MutationObserver(() => run());
-  obs.observe(document.documentElement, { childList: true, subtree: true });
-  setTimeout(() => obs.disconnect(), 5000); // si auto-spegne dopo 5s
 })();
-
 
