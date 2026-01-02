@@ -443,9 +443,14 @@ onlOnReady(() => {
 });
 
 /* =========================
-   TAG descrizioni
+   DESCRIZIONI HOME + TAG (sotto header)
+   - HOME: testo fisso (centrato)
+   - TAG: desktop centrato sotto header + mobile inline a bandiera (come ora)
    ========================= */
 onlOnReady(() => {
+
+  const HOME_TEXT = "Appunti su lettering, fumetto e cultura visiva";
+
   const TAG_INFO = {
     "autori": { text: "Ritratti e approfondimenti su artisti, letteristi e designer." },
     "dentro-il-logo": { text: "Indagini sui loghi più significativi della storia del fumetto e oltre." },
@@ -453,6 +458,41 @@ onlOnReady(() => {
     "tesori": { text: "Lettering selezionati per qualità e rilevanza." }
   };
 
+  function getHead(){
+    return document.querySelector("#gh-head") || document.querySelector(".gh-head") || document.querySelector("header");
+  }
+
+  function insertUnderHead(kind, text){
+    if (!text) return;
+
+    const id = kind === "home" ? "onl-home-underhead" : "onl-tag-underhead";
+    if (document.getElementById(id)) return;
+
+    const head = getHead();
+    if (!head) return;
+
+    const box = document.createElement("div");
+    box.id = id;
+    box.className = `onl-underhead-desc onl-underhead-desc--${kind}`;
+    box.innerHTML = `<p class="onl-underhead-desc__text"></p>`;
+    box.querySelector("p").textContent = text;
+
+    // IMPORTANT: lo mettiamo subito dopo l'header (sotto la riga stacked)
+    head.insertAdjacentElement("afterend", box);
+  }
+
+  // ---------- HOME ----------
+  const isHome =
+    document.body.classList.contains("home-template") ||
+    document.body.classList.contains("index-template") ||
+    window.location.pathname === "/" ||
+    window.location.pathname === "";
+
+  if (isHome) {
+    insertUnderHead("home", HOME_TEXT);
+  }
+
+  // ---------- TAG ----------
   const m = window.location.pathname.match(/^\/tag\/([^\/]+)\/?$/);
   if (!m) return;
 
@@ -460,55 +500,35 @@ onlOnReady(() => {
   const info = TAG_INFO[slug];
   if (!info) return;
 
-  const isMobile = window.matchMedia('(max-width: 900px)').matches;
+  const isMobile = window.matchMedia("(max-width: 900px)").matches;
 
+  // Desktop: centrato sotto header
   if (!isMobile) {
-    const menuLinks = Array.from(document.querySelectorAll('header a[href], nav a[href], .gh-head a[href], .gh-navigation a[href]'));
-    let link = null;
-
-    for (const a of menuLinks) {
-      try{
-        const u = new URL(a.getAttribute('href'), window.location.origin);
-        const p = onlNormalizePath(u.pathname);
-        if (p === onlNormalizePath(`/tag/${slug}/`)) { link = a; break; }
-      } catch(e){}
-    }
-
-    if (!link) link = document.querySelector('.nav-link-active[href]');
-    if (!link) return;
-
-    const parent = link.parentElement || link;
-    parent.classList.add('onl-navitem');
-
-    if (!parent.querySelector('.onl-nav-desc')) {
-      const desc = document.createElement('span');
-      desc.className = 'onl-nav-desc';
-      desc.textContent = info.text;
-      parent.appendChild(desc);
-    }
+    insertUnderHead("tag", info.text);
     return;
   }
 
-  if (document.querySelector('.onl-tagdesc-inline')) return;
+  // Mobile: inline a bandiera (come già facevi)
+  if (document.querySelector(".onl-tagdesc-inline")) return;
 
-  const box = document.createElement('div');
-  box.className = 'onl-tagdesc-inline';
+  const box = document.createElement("div");
+  box.className = "onl-tagdesc-inline";
   box.innerHTML = `<p class="onl-tagdesc-inline__text"></p>`;
-  box.querySelector('.onl-tagdesc-inline__text').textContent = info.text;
+  box.querySelector(".onl-tagdesc-inline__text").textContent = info.text;
 
   const feed =
-    document.querySelector('.post-feed') ||
-    document.querySelector('.gh-feed') ||
-    document.querySelector('.gh-postfeed') ||
-    document.querySelector('.gh-posts') ||
-    document.querySelector('.post-list');
+    document.querySelector(".post-feed") ||
+    document.querySelector(".gh-feed") ||
+    document.querySelector(".gh-postfeed") ||
+    document.querySelector(".gh-posts") ||
+    document.querySelector(".post-list");
 
   const anchor =
-    document.querySelector('main') ||
-    document.querySelector('.gh-main') ||
-    document.querySelector('.site-content') ||
-    document.querySelector('.content') ||
-    document.querySelector('body');
+    document.querySelector("main") ||
+    document.querySelector(".gh-main") ||
+    document.querySelector(".site-content") ||
+    document.querySelector(".content") ||
+    document.querySelector("body");
 
   if (feed && feed.parentNode) {
     feed.parentNode.insertBefore(box, feed);
@@ -517,6 +537,7 @@ onlOnReady(() => {
     else anchor.appendChild(box);
   }
 });
+
 
 /* =========================
    Click immagine: apre link SOLO se alt="link:..."
