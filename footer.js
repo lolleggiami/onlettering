@@ -2127,6 +2127,8 @@ onlOnReady(() => {
         window.open(igUrl, "_blank", "noopener,noreferrer");
       }, true);
     });
+
+     
   }
 
   function run() {
@@ -2143,15 +2145,9 @@ onlOnReady(() => {
 
 
 
-
-
-
-
-
 (function () {
   "use strict";
 
-  const DEFAULT_TEXT = "Appunti su lettering, fumetti e progetto editoriale";
   const DESKTOP_MQ = "(min-width: 769px)";
 
   function qs(sel, root = document) { return root.querySelector(sel); }
@@ -2160,52 +2156,17 @@ onlOnReady(() => {
     return qs("#gh-head") || qs(".gh-head");
   }
 
-  function getBrand(head) {
-    return head ? qs(".gh-head-brand", head) : null;
-  }
-
   function getActions(head) {
     return qs(".gh-head-actions", head) || qs(".gh-head-right", head) || head;
   }
 
   function getNavList(head) {
-    const nav = qs("nav.gh-head-menu", head) || qs(".gh-head-menu", head) || qs(".gh-head-nav", head) || qs("nav", head);
+    const nav =
+      qs("nav.gh-head-menu", head) ||
+      qs(".gh-head-menu", head) ||
+      qs(".gh-head-nav", head) ||
+      qs("nav", head);
     return nav ? qs("ul", nav) : null;
-  }
-
-  // ----- TAG PAGE DESCRIPTION (original del tema) -----
-  function findTagDescriptionNode() {
-    return (
-      qs(".gh-pagehead-description") ||
-      qs(".gh-archive-description") ||
-      qs(".pagehead-description") ||
-      qs(".tag-description") ||
-      qs(".taxonomy-description")
-    );
-  }
-
-  // ----- BRAND SUBTITLE (accanto al logo) -----
-  function upsertBrandSubtitle(brand, text) {
-    let el = qs('[data-brand-subtitle="1"]', brand);
-    if (!el) {
-      el = document.createElement("span");
-      el.setAttribute("data-brand-subtitle", "1");
-
-      // inserisci subito dopo il primo link del brand (di solito il logo)
-      const logoLink = qs("a", brand);
-      if (logoLink && logoLink.parentElement === brand) {
-        logoLink.insertAdjacentElement("afterend", el);
-      } else {
-        brand.appendChild(el);
-      }
-    }
-    el.textContent = text;
-  }
-
-  // Se esiste la vecchia tagline sotto (p[data-tagline]), rimuovila per non duplicare
-  function removeOldTaglineUnderLogo(brand) {
-    const old = qs("[data-tagline]", brand);
-    if (old) old.remove();
   }
 
   // ----- SEARCH + NEWSLETTER move (solo desktop) -----
@@ -2279,31 +2240,11 @@ onlOnReady(() => {
     if (liN) liN.remove();
   }
 
-  // ----- APPLY -----
+  // ----- APPLY (solo Search + Newsletter; niente sottotitolo accanto al logo) -----
   function applyAll() {
     const head = getHead();
     if (!head) return;
 
-    const brand = getBrand(head);
-    if (!brand) return;
-
-    // 1) testo accanto al logo:
-    const isTag = document.body.classList.contains("tag-template");
-    const tagDescNode = isTag ? findTagDescriptionNode() : null;
-    const tagText = tagDescNode ? (tagDescNode.textContent || "").trim() : "";
-
-    // Usa descrizione tag se presente, altrimenti default
-    upsertBrandSubtitle(brand, (isTag && tagText) ? tagText : DEFAULT_TEXT);
-
-    // 2) elimina la vecchia tagline sotto al logo (quella di prima)
-    removeOldTaglineUnderLogo(brand);
-
-    // 3) nelle tag page nascondi la descrizione originale del tema (così “prende il posto” della tagline)
-    if (isTag && tagDescNode) {
-      tagDescNode.style.display = "none";
-    }
-
-    // 4) search/newsletter: desktop nel menu, mobile restore
     const isDesktop = window.matchMedia(DESKTOP_MQ).matches;
     if (isDesktop) moveIntoMenuDesktop(head);
     else restoreOnMobile(head);
