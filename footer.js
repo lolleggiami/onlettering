@@ -452,10 +452,10 @@ onlOnReady(() => {
   const HOME_TEXT = "Appunti su lettering, fumetto e cultura visiva";
 
   const TAG_INFO = {
-    "autori": { text: "Ritratti e approfondimenti su artisti, letteristi e designer." },
-    "dentro-il-logo": { text: "Indagini sui loghi più significativi della storia del fumetto e oltre." },
-    "focus": { text: "Approfondimenti tra tecnica, storia e cultura del lettering." },
-    "tesori": { text: "Lettering selezionati per qualità e rilevanza." }
+    "autori": { text: "Ritratti e approfondimenti su artisti, letteristi e designer" },
+    "dentro-il-logo": { text: "Indagini sui loghi più significativi della storia del fumetto e oltre" },
+    "focus": { text: "Approfondimenti tra tecnica, storia e cultura del lettering" },
+    "tesori": { text: "Lettering selezionati per qualità e rilevanza" }
   };
 
   function getHead(){
@@ -2146,61 +2146,6 @@ onlOnReady(() => {
 
 
 
-
-
-(function () {
-  "use strict";
-
-  const DEFAULT_TEXT = "Appunti su lettering, fumetti e progetto editoriale";
-  const DESKTOP_MQ = "(min-width: 769px)";
-
-  function qs(sel, root = document) { return root.querySelector(sel); }
-
-  function getHead() {
-    return qs("#gh-head") || qs(".gh-head");
-  }
-
-  function getBrand(head) {
-    return head ? qs(".gh-head-brand", head) : null;
-  }
-
-  function getActions(head) {
-    return qs(".gh-head-actions", head) || qs(".gh-head-right", head) || head;
-  }
-
-  function getNavList(head) {
-    const nav = qs("nav.gh-head-menu", head) || qs(".gh-head-menu", head) || qs(".gh-head-nav", head) || qs("nav", head);
-    return nav ? qs("ul", nav) : null;
-  }
-
-  // ----- TAG PAGE DESCRIPTION (original del tema) -----
-  function findTagDescriptionNode() {
-    return (
-      qs(".gh-pagehead-description") ||
-      qs(".gh-archive-description") ||
-      qs(".pagehead-description") ||
-      qs(".tag-description") ||
-      qs(".taxonomy-description")
-    );
-  }
-
-  // ----- BRAND SUBTITLE (accanto al logo) -----
-  function upsertBrandSubtitle(brand, text) {
-    let el = qs('[data-brand-subtitle="1"]', brand);
-    if (!el) {
-      el = document.createElement("span");
-      el.setAttribute("data-brand-subtitle", "1");
-
-      // inserisci subito dopo il primo link del brand (di solito il logo)
-      const logoLink = qs("a", brand);
-      if (logoLink && logoLink.parentElement === brand) {
-        logoLink.insertAdjacentElement("afterend", el);
-      } else {
-        brand.appendChild(el);
-      }
-    }
-    el.textContent = text;
-  }
 
   // Se esiste la vecchia tagline sotto (p[data-tagline]), rimuovila per non duplicare
   function removeOldTaglineUnderLogo(brand) {
