@@ -1019,8 +1019,8 @@ onlOnReady(() => {
 
   const cookieNote = document.createElement('p');
   cookieNote.className = 'onl-footer-cookie';
-  cookieNote.textContent =
-    'Questo sito utilizza esclusivamente cookie tecnici necessari al suo funzionamento. Nessuna profilazione o tracciamento.';
+  cookieNote.innerHTML =
+  'Questo sito utilizza esclusivamente cookie tecnici necessari al suo funzionamento. <span class="cookie-note-line2">Nessuna profilazione o tracciamento.</span>';
 
   // inserisci subito sotto il copyright
   copyright.insertAdjacentElement('afterend', cookieNote);
