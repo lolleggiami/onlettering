@@ -997,14 +997,20 @@ onlOnReady(() => {
 
 
 onlOnReady(() => {
+  // mostra SOLO in home
+  const isHome =
+    document.body.classList.contains('home-template') ||
+    window.location.pathname === '/';
+
+  if (!isHome) return;
   if (document.querySelector('.onl-footer-cookie')) return;
 
   const footer = document.querySelector('footer');
   if (!footer) return;
 
-  // cerca la riga "ONlettering © 2026"
+  // cerca la riga "ONlettering ©"
   const copyright = Array.from(
-    footer.querySelectorAll('p, span, div')
+    footer.querySelectorAll('p, span, div, small')
   ).find(el =>
     (el.textContent || '').includes('ONlettering')
   );
@@ -1016,9 +1022,10 @@ onlOnReady(() => {
   cookieNote.textContent =
     'Questo sito utilizza esclusivamente cookie tecnici necessari al suo funzionamento. Nessuna profilazione o tracciamento.';
 
-  // inserisce SUBITO DOPO il copyright
+  // inserisci subito sotto il copyright
   copyright.insertAdjacentElement('afterend', cookieNote);
 });
+
 
 
 
