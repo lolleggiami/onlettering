@@ -994,6 +994,35 @@ onlOnReady(() => {
   }
 });
 
+
+
+onlOnReady(() => {
+  if (document.querySelector('.onl-footer-cookie')) return;
+
+  const footer = document.querySelector('footer');
+  if (!footer) return;
+
+  // cerca la riga "ONlettering © 2026"
+  const copyright = Array.from(
+    footer.querySelectorAll('p, span, div')
+  ).find(el =>
+    (el.textContent || '').includes('ONlettering')
+  );
+
+  if (!copyright) return;
+
+  const cookieNote = document.createElement('p');
+  cookieNote.className = 'onl-footer-cookie';
+  cookieNote.textContent =
+    'Questo sito utilizza esclusivamente cookie tecnici necessari al suo funzionamento. Nessuna profilazione o tracciamento.';
+
+  // inserisce SUBITO DOPO il copyright
+  copyright.insertAdjacentElement('afterend', cookieNote);
+});
+
+
+
+
 /* =========================================================
    ONLETTERING – SEARCH overlay (versione affinata)
    ========================================================= */
@@ -2260,3 +2289,6 @@ onlOnReady(() => {
   setTimeout(applyAll, 1200);
   window.addEventListener("resize", applyAll);
 })();
+
+
+
