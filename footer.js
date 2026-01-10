@@ -1661,6 +1661,10 @@ onlOnReady(() => {
           text-align: left !important;
         }
 
+  .gh-portal-main-title{
+    text-align: center !important;
+  }
+
         .onl-portal-desc{
           margin:16px 0 0;
           line-height:1.45;
