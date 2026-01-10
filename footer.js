@@ -1491,8 +1491,8 @@ onlOnReady(() => {
 
 /* =========================================================
    Ghost Portal (MODAL iframe) — ONLETTERING FINAL SAFE
-   (Titolo centrato SOLO DESKTOP; mobile resta left)
-   + FIX robusto: funziona anche col bottone flottante
+   (Titolo centrato SOLO DESKTOP del SITO; mobile resta left)
+   FIX: desktop detection su window principale (non sull’iframe)
    ========================================================= */
 onlOnReady(() => {
 
@@ -1513,6 +1513,15 @@ onlOnReady(() => {
       emailPlaceholder: "ciao@onlettering.com"
     }
   };
+
+  // ✅ Desktop/mobile valutato sulla finestra principale (NON sull’iframe)
+  function isDesktopMain(){
+    try{
+      return window.matchMedia && window.matchMedia('(min-width: 769px)').matches;
+    }catch(_){
+      return false;
+    }
+  }
 
   function findPortalIframe(){
     return Array.from(document.querySelectorAll('iframe')).find(f => {
@@ -1646,22 +1655,14 @@ onlOnReady(() => {
     }, 8000);
   }
 
-  // === SOLO DESKTOP: mantenere il titolo centrato anche dopo re-render ===
+  // SOLO DESKTOP (del sito): mantiene titolo centrato anche dopo re-render
   function ensurePortalTitleObserver(doc){
     if (!doc || !doc.documentElement) return;
     if (doc.__onl_title_observer_attached) return;
     doc.__onl_title_observer_attached = true;
 
-    const isDesktop = () => {
-      try {
-        return doc.defaultView && doc.defaultView.matchMedia && doc.defaultView.matchMedia('(min-width: 769px)').matches;
-      } catch(_) {
-        return false;
-      }
-    };
-
     const fixTitle = () => {
-      if (!isDesktop()) return;
+      if (!isDesktopMain()) return;
 
       const t =
         doc.querySelector('.gh-portal-main-title') ||
@@ -1692,8 +1693,6 @@ onlOnReady(() => {
     const C = CFG[mode] || CFG.signup;
 
     setModeClass(doc, mode);
-
-    // attacca observer per titolo (SOLO desktop)
     ensurePortalTitleObserver(doc);
 
     if (!doc.getElementById('onl-portal-style')) {
@@ -1705,14 +1704,12 @@ onlOnReady(() => {
           text-align: left !important;
         }
 
-        /* SOLO DESKTOP: titolo centrato */
-        @media (min-width: 769px){
-          .gh-portal-main-title,
-          .gh-portal-signup-header h1,
-          .gh-portal-signup-header h2{
-            text-align: center !important;
-            width: 100% !important;
-          }
+        /* SOLO DESKTOP (del sito): titolo centrato */
+        .gh-portal-main-title,
+        .gh-portal-signup-header h1,
+        .gh-portal-signup-header h2{
+          text-align: left !important;
+          width: 100% !important;
         }
 
         .onl-portal-desc{
@@ -1744,17 +1741,12 @@ onlOnReady(() => {
       if (mode === 'signup') title.innerHTML = C.titleHtml;
       else title.textContent = C.titleText || '';
 
-      // SOLO DESKTOP: centro; mobile: left (come prima)
-      try{
-        const isDesktop = doc.defaultView && doc.defaultView.matchMedia && doc.defaultView.matchMedia('(min-width: 769px)').matches;
-        if (isDesktop){
-          title.style.setProperty('text-align', 'center', 'important');
-          title.style.setProperty('width', '100%', 'important');
-        } else {
-          title.style.setProperty('text-align', 'left', 'important');
-          title.style.setProperty('width', '100%', 'important');
-        }
-      }catch(_){}
+      if (isDesktopMain()){
+        title.style.setProperty('text-align', 'center', 'important');
+      } else {
+        title.style.setProperty('text-align', 'left', 'important');
+      }
+      title.style.setProperty('width', '100%', 'important');
     }
 
     const email =
@@ -1789,40 +1781,21 @@ onlOnReady(() => {
     }
   }
 
-  // ===== FIX ROBUSTO =====
-  // 1) Aggancia l’apertura del Portal intercettando la comparsa dell’iframe
-  // 2) Applica quando l’iframe ha contentDocument disponibile
-  function attachPortalIframeWatcher(){
-    let lastIframe = null;
-
-    const tryApply = () => {
+  function run(){
+    let n = 0;
+    const id = setInterval(() => {
+      n++;
       const iframe = findPortalIframe();
-      if (!iframe) return;
-
-      // se è un iframe diverso/nuovo, riprova più volte finché il doc è pronto
-      if (iframe !== lastIframe) lastIframe = iframe;
-
-      if (iframe.contentDocument && iframe.contentDocument.documentElement) {
-        apply(iframe.contentDocument);
-      } else {
-        // riprova a breve: portal carica il doc con un minimo di delay
-        setTimeout(tryApply, 60);
-        setTimeout(tryApply, 180);
-        setTimeout(tryApply, 420);
-      }
-    };
-
-    // osserva tutto il DOM: quando compare/si aggiorna l’iframe portal, applica
-    const mo = new MutationObserver(() => tryApply());
-    mo.observe(document.documentElement, { childList: true, subtree: true });
-
-    // anche al load iniziale / navigazioni
-    tryApply();
-    window.addEventListener('pageshow', tryApply);
-    window.addEventListener('hashchange', tryApply);
+      if (iframe?.contentDocument) apply(iframe.contentDocument);
+      if (iframe || n > 80) clearInterval(id);
+    }, 100);
   }
 
-  // Manteniamo anche il tuo trigger su click (utile), ma non è più indispensabile
+  // Qualunque trigger (menu, bottone flottante, ecc.)
+  // ci basta che prima o poi l’iframe esista.
+  const mo = new MutationObserver(() => run());
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+
   document.addEventListener('click', e => {
     const t = e.target.closest('[data-portal],a[href*="signin"],a[href*="signup"],a[href*="#/portal/"]');
     if (!t) return;
@@ -1834,15 +1807,14 @@ onlOnReady(() => {
       (h.includes('signin') || d === 'signin') ? 'signin' :
       (h.includes('signup') || d === 'signup') ? 'signup' : null;
 
-    setTimeout(() => {
-      const iframe = findPortalIframe();
-      if (iframe?.contentDocument) apply(iframe.contentDocument);
-    }, 30);
+    setTimeout(run, 30);
   }, true);
 
-  attachPortalIframeWatcher();
+  window.addEventListener('hashchange', run);
+  window.addEventListener('pageshow', run);
 
 });
+
 
 
 
