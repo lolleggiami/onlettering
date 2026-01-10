@@ -1489,9 +1489,9 @@ onlOnReady(() => {
   })();
 });
 
-  /* =========================================================
+/* =========================================================
    Ghost Portal (MODAL iframe) — ONLETTERING FINAL SAFE
-   (UNICA MODIFICA: titolo centrato)
+   (MODIFICA: titolo centrato SOLO DESKTOP, mobile resta left)
    ========================================================= */
 onlOnReady(() => {
 
@@ -1646,15 +1646,25 @@ onlOnReady(() => {
   }
 
   /* =========================================================
-     NUOVO: observer dedicato SOLO al titolo (centro stabile)
-     Non tocca nient'altro.
+     SOLO DESKTOP: forza titolo centrato e lo mantiene dopo re-render
+     Mobile resta invariato (left).
      ========================================================= */
   function ensurePortalTitleObserver(doc){
     if (!doc || !doc.documentElement) return;
     if (doc.__onl_title_observer_attached) return;
     doc.__onl_title_observer_attached = true;
 
+    const isDesktop = () => {
+      try {
+        return doc.defaultView && doc.defaultView.matchMedia && doc.defaultView.matchMedia('(min-width: 769px)').matches;
+      } catch(_) {
+        return false;
+      }
+    };
+
     const fixTitle = () => {
+      if (!isDesktop()) return;
+
       const t =
         doc.querySelector('.gh-portal-main-title') ||
         doc.querySelector('.gh-portal-content h1') ||
@@ -1685,7 +1695,7 @@ onlOnReady(() => {
 
     setModeClass(doc, mode);
 
-    // attacca una volta sola l’observer del titolo (solo centro, niente altro)
+    // attacca una volta sola l’observer del titolo (SOLO desktop)
     ensurePortalTitleObserver(doc);
 
     if (!doc.getElementById('onl-portal-style')) {
@@ -1697,12 +1707,14 @@ onlOnReady(() => {
           text-align: left !important;
         }
 
-        /* SOLO titolo centrato (vince sul left globale) */
-        .gh-portal-main-title,
-        .gh-portal-signup-header h1,
-        .gh-portal-signup-header h2{
-          text-align: center !important;
-          width: 100% !important;
+        /* SOLO DESKTOP: titolo centrato */
+        @media (min-width: 769px){
+          .gh-portal-main-title,
+          .gh-portal-signup-header h1,
+          .gh-portal-signup-header h2{
+            text-align: center !important;
+            width: 100% !important;
+          }
         }
 
         .onl-portal-desc{
@@ -1734,9 +1746,19 @@ onlOnReady(() => {
       if (mode === 'signup') title.innerHTML = C.titleHtml;
       else title.textContent = C.titleText || '';
 
-      // forza centro sul titolo (anche qui, oltre al CSS)
-      title.style.setProperty('text-align', 'center', 'important');
-      title.style.setProperty('width', '100%', 'important');
+      // SOLO DESKTOP: forza centro (mobile resta left come prima)
+      try{
+        const isDesktop = doc.defaultView && doc.defaultView.matchMedia && doc.defaultView.matchMedia('(min-width: 769px)').matches;
+        if (isDesktop){
+          title.style.setProperty('text-align', 'center', 'important');
+          title.style.setProperty('width', '100%', 'important');
+        } else {
+          title.style.setProperty('text-align', 'left', 'important');
+          title.style.setProperty('width', '100%', 'important');
+        }
+      }catch(_){
+        // fallback: non tocchiamo nulla
+      }
     }
 
     const email =
@@ -1799,6 +1821,7 @@ onlOnReady(() => {
   window.addEventListener('pageshow', run);
 
 });
+
 
 /* =========================
    EDGE (v1.0.0) — Nascondi "Accedi" in header (desktop + mobile)
