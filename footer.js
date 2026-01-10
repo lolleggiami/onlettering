@@ -1489,8 +1489,9 @@ onlOnReady(() => {
   })();
 });
 
-/* =========================================================
-   Ghost Portal (MODAL iframe) — ONLETTERING FINAL SAFE (FIX RIGA)
+  /* =========================================================
+   Ghost Portal (MODAL iframe) — ONLETTERING FINAL SAFE
+   (UNICA MODIFICA: titolo centrato)
    ========================================================= */
 onlOnReady(() => {
 
@@ -1644,6 +1645,38 @@ onlOnReady(() => {
     }, 8000);
   }
 
+  /* =========================================================
+     NUOVO: observer dedicato SOLO al titolo (centro stabile)
+     Non tocca nient'altro.
+     ========================================================= */
+  function ensurePortalTitleObserver(doc){
+    if (!doc || !doc.documentElement) return;
+    if (doc.__onl_title_observer_attached) return;
+    doc.__onl_title_observer_attached = true;
+
+    const fixTitle = () => {
+      const t =
+        doc.querySelector('.gh-portal-main-title') ||
+        doc.querySelector('.gh-portal-content h1') ||
+        doc.querySelector('.gh-portal-content h2') ||
+        doc.querySelector('h1') ||
+        doc.querySelector('h2');
+
+      if (!t) return;
+
+      t.style.setProperty('text-align', 'center', 'important');
+      t.style.setProperty('width', '100%', 'important');
+    };
+
+    fixTitle();
+
+    const mo = new MutationObserver(() => fixTitle());
+    try{
+      mo.observe(doc.documentElement, { childList: true, subtree: true });
+      doc.__onl_title_observer = mo;
+    }catch(_){}
+  }
+
   function apply(doc){
     if (!doc || !doc.documentElement) return;
 
@@ -1651,6 +1684,9 @@ onlOnReady(() => {
     const C = CFG[mode] || CFG.signup;
 
     setModeClass(doc, mode);
+
+    // attacca una volta sola l’observer del titolo (solo centro, niente altro)
+    ensurePortalTitleObserver(doc);
 
     if (!doc.getElementById('onl-portal-style')) {
       const st = doc.createElement('style');
@@ -1661,9 +1697,13 @@ onlOnReady(() => {
           text-align: left !important;
         }
 
-  .gh-portal-main-title{
-    text-align: center !important;
-  }
+        /* SOLO titolo centrato (vince sul left globale) */
+        .gh-portal-main-title,
+        .gh-portal-signup-header h1,
+        .gh-portal-signup-header h2{
+          text-align: center !important;
+          width: 100% !important;
+        }
 
         .onl-portal-desc{
           margin:16px 0 0;
@@ -1693,6 +1733,8 @@ onlOnReady(() => {
     if (title) {
       if (mode === 'signup') title.innerHTML = C.titleHtml;
       else title.textContent = C.titleText || '';
+
+      // forza centro sul titolo (anche qui, oltre al CSS)
       title.style.setProperty('text-align', 'center', 'important');
       title.style.setProperty('width', '100%', 'important');
     }
