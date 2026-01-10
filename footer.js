@@ -1803,7 +1803,7 @@ onlOnReady(() => {
     }, 100);
   }
 
-  document.addEventListener('click', e => {
+    document.addEventListener('click', e => {
     const t = e.target.closest('[data-portal],a[href*="signin"],a[href*="signup"],a[href*="#/portal/"]');
     if (!t) return;
 
@@ -1816,6 +1816,18 @@ onlOnReady(() => {
 
     setTimeout(run, 30);
   }, true);
+
+  // ✅ NEW: portal aperto anche da bottone flottante → applica sempre
+  const portalOpenObserver = new MutationObserver(() => {
+    if (document.body.classList.contains('gh-portal-open')) {
+      run();
+    }
+  });
+  portalOpenObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+
+  window.addEventListener('focus', () => {
+    if (document.body.classList.contains('gh-portal-open')) run();
+  });
 
   window.addEventListener('hashchange', run);
   window.addEventListener('pageshow', run);
