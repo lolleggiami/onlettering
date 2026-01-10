@@ -1491,7 +1491,8 @@ onlOnReady(() => {
 
 /* =========================================================
    Ghost Portal (MODAL iframe) — ONLETTERING FINAL SAFE
-   (MODIFICA: titolo centrato SOLO DESKTOP, mobile resta left)
+   (Titolo centrato SOLO DESKTOP; mobile resta left)
+   + FIX robusto: funziona anche col bottone flottante
    ========================================================= */
 onlOnReady(() => {
 
@@ -1645,10 +1646,7 @@ onlOnReady(() => {
     }, 8000);
   }
 
-  /* =========================================================
-     SOLO DESKTOP: forza titolo centrato e lo mantiene dopo re-render
-     Mobile resta invariato (left).
-     ========================================================= */
+  // === SOLO DESKTOP: mantenere il titolo centrato anche dopo re-render ===
   function ensurePortalTitleObserver(doc){
     if (!doc || !doc.documentElement) return;
     if (doc.__onl_title_observer_attached) return;
@@ -1695,7 +1693,7 @@ onlOnReady(() => {
 
     setModeClass(doc, mode);
 
-    // attacca una volta sola l’observer del titolo (SOLO desktop)
+    // attacca observer per titolo (SOLO desktop)
     ensurePortalTitleObserver(doc);
 
     if (!doc.getElementById('onl-portal-style')) {
@@ -1746,7 +1744,7 @@ onlOnReady(() => {
       if (mode === 'signup') title.innerHTML = C.titleHtml;
       else title.textContent = C.titleText || '';
 
-      // SOLO DESKTOP: forza centro (mobile resta left come prima)
+      // SOLO DESKTOP: centro; mobile: left (come prima)
       try{
         const isDesktop = doc.defaultView && doc.defaultView.matchMedia && doc.defaultView.matchMedia('(min-width: 769px)').matches;
         if (isDesktop){
@@ -1756,9 +1754,7 @@ onlOnReady(() => {
           title.style.setProperty('text-align', 'left', 'important');
           title.style.setProperty('width', '100%', 'important');
         }
-      }catch(_){
-        // fallback: non tocchiamo nulla
-      }
+      }catch(_){}
     }
 
     const email =
@@ -1793,17 +1789,41 @@ onlOnReady(() => {
     }
   }
 
-  function run(){
-    let n = 0;
-    const id = setInterval(() => {
-      n++;
+  // ===== FIX ROBUSTO =====
+  // 1) Aggancia l’apertura del Portal intercettando la comparsa dell’iframe
+  // 2) Applica quando l’iframe ha contentDocument disponibile
+  function attachPortalIframeWatcher(){
+    let lastIframe = null;
+
+    const tryApply = () => {
       const iframe = findPortalIframe();
-      if (iframe?.contentDocument) apply(iframe.contentDocument);
-      if (iframe || n > 80) clearInterval(id);
-    }, 100);
+      if (!iframe) return;
+
+      // se è un iframe diverso/nuovo, riprova più volte finché il doc è pronto
+      if (iframe !== lastIframe) lastIframe = iframe;
+
+      if (iframe.contentDocument && iframe.contentDocument.documentElement) {
+        apply(iframe.contentDocument);
+      } else {
+        // riprova a breve: portal carica il doc con un minimo di delay
+        setTimeout(tryApply, 60);
+        setTimeout(tryApply, 180);
+        setTimeout(tryApply, 420);
+      }
+    };
+
+    // osserva tutto il DOM: quando compare/si aggiorna l’iframe portal, applica
+    const mo = new MutationObserver(() => tryApply());
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+
+    // anche al load iniziale / navigazioni
+    tryApply();
+    window.addEventListener('pageshow', tryApply);
+    window.addEventListener('hashchange', tryApply);
   }
 
-    document.addEventListener('click', e => {
+  // Manteniamo anche il tuo trigger su click (utile), ma non è più indispensabile
+  document.addEventListener('click', e => {
     const t = e.target.closest('[data-portal],a[href*="signin"],a[href*="signup"],a[href*="#/portal/"]');
     if (!t) return;
 
@@ -1814,25 +1834,16 @@ onlOnReady(() => {
       (h.includes('signin') || d === 'signin') ? 'signin' :
       (h.includes('signup') || d === 'signup') ? 'signup' : null;
 
-    setTimeout(run, 30);
+    setTimeout(() => {
+      const iframe = findPortalIframe();
+      if (iframe?.contentDocument) apply(iframe.contentDocument);
+    }, 30);
   }, true);
 
-  // ✅ NEW: portal aperto anche da bottone flottante → applica sempre
-  const portalOpenObserver = new MutationObserver(() => {
-    if (document.body.classList.contains('gh-portal-open')) {
-      run();
-    }
-  });
-  portalOpenObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-  window.addEventListener('focus', () => {
-    if (document.body.classList.contains('gh-portal-open')) run();
-  });
-
-  window.addEventListener('hashchange', run);
-  window.addEventListener('pageshow', run);
+  attachPortalIframeWatcher();
 
 });
+
 
 
 /* =========================
