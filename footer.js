@@ -1689,7 +1689,7 @@ onlOnReady(() => {
     if (title) {
       if (mode === 'signup') title.innerHTML = C.titleHtml;
       else title.textContent = C.titleText || '';
-      title.style.setProperty('text-align', 'left', 'important');
+      title.style.setProperty('text-align', 'center', 'important');
       title.style.setProperty('width', '100%', 'important');
     }
 
